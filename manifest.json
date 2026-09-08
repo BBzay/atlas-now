@@ -1,7 +1,7 @@
 {
   "id": "atlas-now",
   "name": "Atlas Now",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "minAppVersion": "1.4.0",
   "description": "The live rundown: tasks by owner (me / AI / together), quick-add, questions from the agent you can answer inline, unfinished notes, and workout sync into daily notes.",
   "author": "Isaiah Horsager",
