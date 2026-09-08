@@ -11,6 +11,8 @@ An Obsidian panel for tasks by owner, quick task entry, inline answers to questi
 
 Requires Obsidian 1.4.0 or newer. Review Atlas Now settings to match the target vault's paths. Installing the plugin does not copy your notes or settings between devices.
 
+Questions appear one at a time. Press Enter or click Send to save and focus the next pending question; Shift+Enter inserts a newline. The section count shows the number still pending. Existing question parsing and answer attribution are preserved.
+
 ## Package and releases
 
 `main.js` is the existing bundled plugin implementation; the original TypeScript source was not present in the installed package. `manifest.json` and `styles.css` complete the installable package.

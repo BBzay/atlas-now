@@ -306,11 +306,20 @@ var AtlasView = class extends import_obsidian.ItemView {
     (_a = this.addInput) == null ? void 0 : _a.focus();
   }
   async refresh() {
+    if (this.sendingAnswer) return;
+    const previousAnswer = this.answerInput;
+    const previousQuestion = this.answerQuestionKey;
+    const draft = previousAnswer ? previousAnswer.value : "";
+    const restoreFocus = this.focusNextAnswer || (previousAnswer && previousAnswer.ownerDocument.activeElement === previousAnswer);
+    const refreshId = this.refreshId = (this.refreshId || 0) + 1;
     const root = this.contentEl;
-    root.empty();
-    root.addClass("atlas-now");
     const tasks = await this.plugin.collectTasks();
     const questions = await this.plugin.collectQuestions();
+    if (refreshId !== this.refreshId || this.sendingAnswer) return;
+    root.empty();
+    root.addClass("atlas-now");
+    this.answerInput = null;
+    this.answerQuestionKey = null;
     const unfinished = this.plugin.unfinishedNotes();
     const outbox = this.plugin.collectOutbox();
     const head = root.createDiv({ cls: "an-head" });
@@ -338,24 +347,43 @@ var AtlasView = class extends import_obsidian.ItemView {
     };
     const openQ = questions.filter((q) => !q.answered);
     const qs = section(root, "Questions for Boss", openQ.length, "", !openQ.length);
-    if (openQ.length) openQ.forEach((q) => {
+    if (openQ.length) {
+      const q = openQ[0];
+      this.answerQuestionKey = `${q.file.path}:${q.text}`;
       const row = qs.createDiv({ cls: "an-q" });
       row.createDiv({ cls: "an-q-text", text: q.text });
       const ans = row.createEl("textarea", { placeholder: "Answer\u2026" });
+      this.answerInput = ans;
+      if (!this.focusNextAnswer && previousQuestion === this.answerQuestionKey) ans.value = draft;
       ans.rows = 1;
+      const b = row.createEl("button", { cls: "an-btn small", text: "Send" });
+      const submit = async () => {
+        if (this.sendingAnswer || !ans.value.trim()) return;
+        this.sendingAnswer = true;
+        ans.disabled = b.disabled = true;
+        try {
+          await this.plugin.answerQuestion(q, ans.value);
+          this.focusNextAnswer = true;
+        } catch (error) {
+          new import_obsidian.Notice("Could not save answer. Your draft is still here; try again.");
+          ans.disabled = b.disabled = false;
+          ans.focus();
+          return;
+        } finally {
+          this.sendingAnswer = false;
+        }
+        await this.refresh();
+      };
       ans.onkeydown = async (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
           e.preventDefault();
-          if (ans.value.trim()) {
-            await this.plugin.answerQuestion(q, ans.value);
-          }
+          await submit();
         }
       };
-      const b = row.createEl("button", { cls: "an-btn small", text: "Send" });
-      b.onclick = async () => {
-        if (ans.value.trim()) await this.plugin.answerQuestion(q, ans.value);
-      };
-    });
+      b.onclick = submit;
+      if (restoreFocus) ans.focus();
+    }
+    this.focusNextAnswer = false;
     const os = section(root, "Outbox", outbox.length, "", !outbox.length);
     outbox.forEach((prompt) => {
       const row = os.createDiv({ cls: "an-outbox" });
