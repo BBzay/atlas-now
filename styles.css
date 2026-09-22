@@ -25,7 +25,7 @@
 .an-due.late{color:var(--text-error)}
 .an-owner{font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:0 5px;border-radius:999px;background:var(--background-modifier-border);color:var(--text-muted)}
 .an-owner.ai{background:var(--color-accent);color:var(--text-on-accent);opacity:.85}
-.an-q{padding:6px 8px;margin-bottom:6px;border-left:2px solid var(--interactive-accent);background:var(--background-secondary);border-radius:0 var(--radius-s) var(--radius-s) 0;display:flex;flex-direction:column;gap:5px}
+.an-q{padding:6px 8px;margin-bottom:6px;background:var(--background-secondary);border-radius:var(--radius-s);display:flex;flex-direction:column;gap:5px}
 .an-q-text{line-height:1.4}
 .an-q textarea{width:100%;resize:vertical;min-height:28px;font-size:var(--font-ui-small)}
 .an-q .an-btn{align-self:flex-end}
@@ -41,3 +41,179 @@
 .an-prompt-meta{display:flex;flex-wrap:wrap;gap:6px;color:var(--text-muted);font-size:var(--font-ui-smaller);overflow-wrap:anywhere}
 .an-prompt-status{border-radius:999px;padding:0 6px;background:var(--background-modifier-border)}
 .an-outbox .an-btn{align-self:flex-end}
+.an-block{padding:10px 0;border-bottom:1px solid var(--background-modifier-border)}
+.an-block-time{font-variant-numeric:tabular-nums;color:var(--text-muted);font-size:var(--font-ui-smaller)}
+.an-block-title{font-weight:600;line-height:1.4;margin:3px 0 5px;overflow-wrap:anywhere}
+.an-plan-summary{line-height:1.45;margin:6px 0;overflow-wrap:anywhere}
+.an-warning{color:var(--text-warning,var(--text-normal));font-weight:600;margin:4px 0}
+.an-source-note{font-size:var(--font-ui-smaller);color:var(--text-muted);line-height:1.4;margin:4px 0;overflow-wrap:anywhere}
+.an-correction{display:flex;flex-direction:column;gap:5px;margin-top:12px}
+.an-correction label{font-weight:600}
+.an-correction textarea{display:block;width:100%;margin-top:5px;resize:vertical;font-weight:400}
+.an-correction textarea::placeholder{color:var(--text-muted);opacity:1}
+.an-correction button{align-self:flex-start}
+.an-backlog{margin-top:16px}
+.an-backlog>summary{cursor:pointer;color:var(--text-muted);padding:6px 0}
+.an-head{gap:6px;flex-wrap:wrap}
+
+.an-session-update{display:flex;align-items:flex-start;gap:12px;padding:10px 0;line-height:1.45}
+.an-session-update>div{flex:1}
+.an-seen{display:flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer;color:var(--text-muted)}
+.an-block-detail{font-size:var(--font-ui-small);color:var(--text-muted);line-height:1.45;overflow-wrap:anywhere}
+.an-instruction{margin:16px 0;display:flex;flex-direction:column;gap:6px}
+.an-instruction label{font-weight:600}
+.an-instruction textarea{display:block;margin-top:6px;width:100%;resize:vertical;font:inherit;min-height:76px}
+.an-instruction textarea::placeholder{color:var(--text-muted);opacity:1}
+.an-instruction button{align-self:flex-end}
+.an-system{margin-top:24px;border-top:1px solid var(--background-modifier-border);padding-top:10px}
+.an-system>summary{cursor:pointer;color:var(--text-muted);font-size:var(--font-ui-smaller)}
+.an-instruction textarea:focus-visible,.an-seen input:focus-visible,.an-system>summary:focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px}
+
+/* 0.5.0: D, one proportional day. All colors follow the Obsidian theme. */
+.atlas-now{--an-work:var(--interactive-accent);--an-commitment:var(--color-blue,var(--interactive-accent));--an-personal:var(--color-green,var(--interactive-accent));--an-work-bg:var(--background-secondary);--an-commitment-bg:var(--background-secondary);--an-personal-bg:var(--background-secondary);padding:20px 18px 22px;font-size:var(--font-ui-small);container-type:inline-size}
+@supports (color:color-mix(in srgb,black,white)){
+ .atlas-now{--an-work-bg:color-mix(in srgb,var(--an-work) 15%,var(--background-primary));--an-commitment-bg:color-mix(in srgb,var(--an-commitment) 14%,var(--background-primary));--an-personal-bg:color-mix(in srgb,var(--an-personal) 14%,var(--background-primary))}
+}
+.an-head{flex-wrap:nowrap;gap:8px;margin-bottom:14px;align-items:center}
+.an-date{flex:1;min-width:0}.an-weekday{font-size:22px;line-height:1.2;letter-spacing:-.025em;font-weight:650;color:var(--text-normal)}
+.an-date-sub{margin-top:4px;font-size:12px;font-weight:400;color:var(--text-muted)}
+.atlas-now .an-icon-btn{width:32px;height:32px;padding:0;flex:none;font-size:19px;background:transparent;box-shadow:none;border:0;color:var(--text-muted)}
+.atlas-now .an-icon-btn:hover{background:var(--background-secondary);color:var(--text-normal)}
+.an-session-update{font-size:12px;line-height:1.5;padding:0 0 14px;margin-bottom:16px;border-bottom:1px solid var(--background-modifier-border)}
+.an-seen{min-height:28px;font-size:11px}.an-seen input{margin:0}
+.an-timeline-toolbar{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;margin-bottom:9px}
+.an-timeline-toolbar .an-btn{background:transparent;box-shadow:none;color:var(--text-muted);font-size:11px;font-weight:400}
+.an-timeline-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:var(--text-muted);margin-bottom:24px}
+.an-key{display:inline-flex;gap:5px;align-items:center}.an-key::before{content:"";width:6px;height:6px;border-radius:2px;background:var(--an-work)}
+.an-key-commitment::before{background:var(--an-commitment)}.an-key-personal::before{background:var(--an-personal)}.an-key-reserved::before{background:var(--background-modifier-border)}
+.an-warning[hidden]{display:none}
+.an-timeline{position:relative;margin:0 1px 25px 35px;isolation:isolate}
+.an-hour,.an-half-hour{position:absolute;left:0;right:0;height:1px;background:var(--background-modifier-border);pointer-events:none}
+.an-half-hour{opacity:.35}.an-hour>span{position:absolute;right:calc(100% + 10px);top:-7px;width:23px;text-align:right;font-size:10px;line-height:14px;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.an-reserved-time{position:absolute;left:0;right:0;background:var(--background-modifier-border);opacity:.45;pointer-events:none}
+.atlas-now button.an-time-event{position:absolute;left:7px;right:7px;width:calc(100% - 14px);display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;text-align:left;gap:3px;box-sizing:border-box;margin:0;padding:8px 10px;border:0;border-radius:5px;min-height:0;max-height:none;box-shadow:none;white-space:normal;overflow:hidden;cursor:pointer;color:var(--text-normal);font-family:var(--font-interface,var(--font-default));z-index:1;transition:filter .15s ease-out}
+.atlas-now .an-time-work{background:var(--an-work-bg)}.atlas-now .an-time-commitment{background:var(--an-commitment-bg)}.atlas-now .an-time-personal{background:var(--an-personal-bg)}
+.atlas-now .an-time-event:hover{filter:brightness(.96)}.theme-dark .atlas-now .an-time-event:hover{filter:brightness(1.15)}
+.atlas-now .an-time-event[aria-pressed=true]{outline:1px solid var(--interactive-accent);outline-offset:-1px}
+.atlas-now .an-time-event:focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px;z-index:3}
+.an-event-title{font-size:12px;line-height:16px;font-weight:600;display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.an-event-time,.an-event-place{font-size:11px;line-height:15px;display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-normal);font-variant-numeric:tabular-nums}
+.an-event-place{margin-top:4px}
+.atlas-now button.an-event-short{padding:4px 9px;justify-content:center}
+.atlas-now button.an-event-tiny{padding:0;border-radius:3px}
+.an-now-line{position:absolute;left:-4px;right:0;border-top:1px solid var(--color-red,var(--text-error));z-index:2;pointer-events:none}
+.an-now-line::before{content:"";position:absolute;top:-3px;left:-2px;width:5px;height:5px;border-radius:50%;background:var(--color-red,var(--text-error))}
+.an-now-line>span{position:absolute;right:1px;top:-16px;background:var(--background-primary);color:var(--text-error);padding:0 3px;font-size:10px;line-height:14px;font-variant-numeric:tabular-nums}
+.an-now-line[hidden]{display:none}
+.an-activity-detail{margin-top:8px;padding:14px 0;border-top:1px solid var(--background-modifier-border);border-bottom:1px solid var(--background-modifier-border);scroll-margin:12px}
+.an-activity-picker{display:flex;gap:12px;align-items:center;font-size:11px;color:var(--text-muted)}
+.an-activity-picker select{flex:1;min-width:0;width:100%;min-height:36px;font-size:12px;text-overflow:ellipsis}
+.an-activity-body{padding-top:10px;overflow-wrap:anywhere}.an-selected-title{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:4px}
+.an-selected-time{font-size:11px;font-variant-numeric:tabular-nums;color:var(--text-muted);margin-bottom:8px}
+.an-activity-body .an-task{margin-top:10px;font-size:12px;line-height:1.45}
+.an-untimed{margin-top:20px}.an-untimed .an-task{font-size:12px}
+.an-instruction{margin:20px 0 12px;gap:6px}.an-instruction label{font-size:12px}.an-instruction textarea{font-size:12px;line-height:1.5;min-height:72px;border-radius:7px;padding:10px 11px;background:var(--background-primary)}
+.an-instruction .an-source-note:empty{display:none}.an-instruction button{min-height:32px;font-size:12px}
+.an-h{font-size:11px;text-transform:none;letter-spacing:0}.an-compact{display:none}
+.an-system{margin-top:22px}.an-system>summary{font-size:11px;padding:8px 0}
+.an-block-detail{font-size:12px;line-height:1.5}
+@container (max-width:300px){.an-timeline-legend{gap:8px}.an-event-title{font-size:11px}.an-activity-picker{flex-direction:column;align-items:stretch;gap:5px}.an-session-update{gap:8px}.an-weekday{font-size:20px}}
+.is-mobile .an-activity-picker select,.is-mobile .an-instruction button,.is-mobile .an-icon-btn{min-height:44px}
+@media(prefers-reduced-motion:reduce){.atlas-now button.an-time-event{transition:none}}
+
+.an-instruction textarea{font-weight:400}
+
+/* 0.5.1: visible reserved bands, exact plan window, no activity picker. */
+.an-reserved-time{background:var(--text-muted);opacity:.42;border-top:1px solid var(--text-muted);border-bottom:1px solid var(--text-muted);box-sizing:border-box}
+.an-key-reserved::before{background:var(--text-muted);opacity:.65}
+.an-timeline{margin-left:43px}.an-hour>span{width:35px;right:calc(100% + 8px)}
+.an-activity-body{padding-top:0}
+
+/* Question navigation follows the native Obsidian theme. */
+.an-question-controls{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;align-items:center}
+.an-question-controls label{display:flex;flex:1 1 180px;gap:8px;align-items:center;min-width:0}
+.an-question-controls select{min-width:0;max-width:100%;flex:1;width:100%;min-height:36px}
+.an-question-controls button{min-height:36px;white-space:normal}
+.an-question-position{font-size:12px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.an-q-text{overflow-wrap:anywhere;max-width:70ch}
+.is-mobile .an-question-controls button,.is-mobile .an-question-controls select{min-height:44px}
+
+/* Explicit occurrence confirmation and contextual messages, in native controls. */
+.an-activity-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:10px 0 5px}
+.an-activity-check{display:flex;align-items:center;gap:8px;min-height:36px;cursor:pointer;line-height:1.4}
+.an-activity-actions button,.an-activity-discussion button{min-height:36px;white-space:normal;height:auto}
+.an-activity-status{color:var(--text-normal);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.an-activity-discussion{margin:10px 0;max-width:100%}
+.an-activity-discussion[hidden]{display:none}
+.an-activity-discussion label{display:block;font-size:12px;overflow-wrap:anywhere}
+.an-activity-discussion textarea{display:block;box-sizing:border-box;width:100%;min-height:76px;margin:6px 0;font:inherit;resize:vertical}
+.an-activity-discussion textarea::placeholder{color:var(--text-muted);opacity:1}
+.an-activity-review{margin-top:14px}
+.an-activity-review>summary{cursor:pointer;line-height:1.5;padding:8px 0;overflow-wrap:anywhere}
+.an-history-activity{padding:12px 0;border-top:1px solid var(--background-modifier-border);overflow-wrap:anywhere}
+.an-activity-actions input:focus-visible,.an-activity-actions button:focus-visible,.an-activity-discussion textarea:focus-visible,.an-activity-review>summary:focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px}
+.is-mobile .an-activity-check,.is-mobile .an-activity-actions button,.is-mobile .an-activity-discussion button{min-height:44px}
+
+/* 0.7.1: one restrained layout in a sidebar or a phone panel. Scope native
+   control overrides so Obsidian's mobile full-width buttons cannot stretch
+   navigation, while timeline geometry remains duration-proportional. */
+.atlas-now{box-sizing:border-box;padding:20px 16px 28px;line-height:1.5}
+.atlas-now *{box-sizing:border-box}
+.atlas-now .an-btn{width:auto;max-width:100%;height:auto;min-height:36px;margin:0;padding:7px 12px;line-height:1.25;box-shadow:none;font:inherit;font-size:13px}
+.atlas-now .an-icon-btn{width:36px;height:36px;min-height:36px;padding:0;font-size:20px}
+.an-head{margin-bottom:20px}
+.an-date-sub{font-size:13px}
+.an-section{margin-top:20px}
+.an-h{font-size:13px;color:var(--text-normal);margin-bottom:8px}
+.an-n{font-size:11px;background:var(--background-secondary);color:var(--text-muted)}
+.an-question-controls{gap:8px;margin:10px 0}
+.an-question-controls label{font-size:13px;flex-basis:100%}
+.atlas-now .an-question-controls select{height:36px;font:inherit;font-size:13px;padding:6px 10px;background:var(--background-primary);box-shadow:none}
+.atlas-now .an-question-controls button{flex:1 1 0;min-width:0;background:var(--background-secondary);border:1px solid var(--background-modifier-border)}
+.an-question-position{margin-top:12px;font-weight:500;color:var(--text-muted)}
+.an-q{padding:0;margin:12px 0 0;background:transparent;gap:10px;border-radius:0}
+.an-q-text{font-size:14px;line-height:1.55;color:var(--text-normal)}
+.atlas-now textarea{width:100%;max-width:100%;font:inherit;font-size:14px;line-height:1.5;padding:10px 12px;border-radius:6px;background:var(--background-primary);color:var(--text-normal);border:1px solid var(--background-modifier-border);box-shadow:none}
+.atlas-now textarea::placeholder{color:var(--text-muted);opacity:1}
+.atlas-now .an-q textarea{min-height:68px}
+.an-instruction{margin:22px 0 26px;padding-top:18px;border-top:1px solid var(--background-modifier-border)}
+.an-instruction label{font-size:13px}
+.an-instruction textarea{margin-top:8px;min-height:82px}
+.an-session-update{font-size:13px;line-height:1.5;gap:10px}
+.an-session-update>div,.an-task-text,.an-activity-body{min-width:0;overflow-wrap:anywhere}
+.an-timeline-toolbar{font-size:14px;margin-bottom:8px;gap:8px}
+.an-timeline-legend{font-size:11px;margin-bottom:22px}
+.an-selected-title{font-size:15px}
+.an-block-detail,.an-activity-body .an-task,.an-untimed .an-task{font-size:13px;line-height:1.5}
+.an-task{padding:7px 0;gap:10px;flex-wrap:wrap}
+.an-task-text{flex:1 1 120px}
+.atlas-now .an-btn:focus-visible,.atlas-now textarea:focus-visible,.atlas-now select:focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px}
+.atlas-now .an-btn:disabled{cursor:default;opacity:.45}
+.atlas-now .an-btn:active:not(:disabled){background:var(--background-modifier-hover,var(--background-secondary))}
+@container (max-width:300px){.an-session-update{flex-wrap:wrap}.an-seen{margin-left:auto}.an-timeline-legend{gap:6px 10px}}
+.is-mobile .atlas-now{padding:20px 16px max(28px,env(safe-area-inset-bottom))}
+.is-mobile .atlas-now .an-btn,.is-mobile .atlas-now .an-question-controls select{min-height:44px}
+.is-mobile .atlas-now .an-icon-btn{width:44px;height:44px}
+.is-mobile .atlas-now textarea,.is-mobile .atlas-now .an-question-controls select{font-size:16px}
+.is-mobile .atlas-now .an-seen{min-height:44px}
+@media(pointer:coarse){
+ .atlas-now .an-btn,.atlas-now .an-question-controls select,.atlas-now .an-seen{min-height:44px}
+ .atlas-now .an-icon-btn{width:44px;height:44px}
+ .atlas-now textarea,.atlas-now .an-question-controls select{font-size:16px}
+}
+
+/* Keep both navigation targets visible and tappable in narrow phone panels. */
+.atlas-now .an-question-navigation{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%}
+.atlas-now .an-question-navigation .an-btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;touch-action:manipulation}
+
+/* Native keyboard controls retain the compact text layout. */
+.atlas-now .an-text-button{height:auto;min-width:0;white-space:normal;text-align:left;background:transparent;border:0;box-shadow:none;color:var(--text-normal);font:inherit;padding:0;}
+.atlas-now .an-note.an-text-button{width:100%;padding:3px 4px;}
+.atlas-now :is(button,summary,select,textarea,input):focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px;}
+
+/* The label expands the hit area without changing native checkbox behavior. */
+.atlas-now .an-task-check{display:flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;min-height:44px;margin:-7px 0;cursor:pointer;touch-action:manipulation}
+.atlas-now .an-task-check input[type=checkbox]{margin:0;width:18px;height:18px;flex:none;cursor:inherit}
+.atlas-now .an-task-check:has(input:disabled){cursor:default;opacity:.6}
+.atlas-now .an-task-text{min-height:30px;align-self:center}
+.atlas-now .an-task>.an-source-note{flex-basis:100%;margin-left:54px}
