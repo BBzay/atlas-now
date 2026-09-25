@@ -33,7 +33,7 @@ const output = process.argv[2];
           'Home/Instructions from Boss.md':'# Instructions\n',
           'Life/Tasks.md':'- [ ] First fixture action #me ^task-first\n- [ ] Second fixture action #me ^task-second\n- [ ] Third fixture action #me ^task-third\n',
           'Home/Agents/old/before/Tasks.md':'- [ ] First fixture action #me ^task-first\n',
-          'Home/Planning/today.json':JSON.stringify({schema_version:1,date:'2026-09-22',blocks:[],unscheduled_task_ids:['task-first','task-second','task-third']})
+          'Home/Planning/today.json':JSON.stringify({schema_version:1,date:'2026-09-22',blocks:[],unscheduled_task_ids:['task-first','task-second','task-third'],session_update:{id:'fixture-notice',text:'Important facts appear here.',details:['Campus parking changes Friday and Saturday.','A confirmed deadline moved to next Tuesday.','<b>This remains plain text.</b>']}})
         };
         const files=Object.keys(contents).map(p=>new TFile(p));
         window.plugin=new module.exports.default();plugin.settings={...plugin.settings};
@@ -45,6 +45,13 @@ const output = process.argv[2];
       });
       await page.evaluate(async()=>{for(let i=0;i<5;i++)await view.refresh({background:true});});
       assert(await page.evaluate(()=>initialInput===view.addInput),'No-op events replaced DOM');
+      const disclosure=page.locator('.an-update-details');
+      assert(!(await disclosure.evaluate(e=>e.open)),'Notices start collapsed');
+      await disclosure.locator('summary').focus(); await page.keyboard.press('Enter');
+      assert(await disclosure.evaluate(e=>e.open),'Keyboard opens notices');
+      assert.equal(await disclosure.locator('li').count(),3);
+      assert.equal(await disclosure.locator('b').count(),0,'Notice strings cannot inject markup');
+      const disclosureRect=await disclosure.locator('summary').boundingBox();assert(disclosureRect.height>=44);
       if(output) await page.screenshot({path:path.join(output,`atlas-tasks-${width}.png`),fullPage:true});
       const input=page.locator('.an-instruction textarea');
       await input.fill('Keep this draft and selection');

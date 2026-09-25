@@ -1,7 +1,7 @@
 {
   "id": "atlas-now",
   "name": "Atlas Now",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "minAppVersion": "1.4.0",
   "description": "A proportional day timeline, important AI updates, one instruction box, and questions.",
   "author": "Isaiah Horsager",

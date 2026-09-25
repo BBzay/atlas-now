@@ -275,6 +275,18 @@ async function tests() {
   controlPlan.session_update = {id: 'session-b', text: 'Lunch changed.'};
   dailyContents['Home/Planning/today.json'] = JSON.stringify(controlPlan);
   await reopened.refresh(); assert(descendants(reopened.contentEl).some(e => e.text === 'Lunch changed.'));
+  controlPlan.session_update.details = ['Campus parking changed.', '  ', null, '<b>plain text</b>'];
+  dailyContents['Home/Planning/today.json'] = JSON.stringify(controlPlan);
+  await reopened.refresh();
+  assert(descendants(reopened.contentEl).some(e => e.tag === 'summary' && e.text === 'More to know (2)'));
+  assert(descendants(reopened.contentEl).some(e => e.tag === 'li' && e.text === '<b>plain text</b>'));
+  seen = descendants(reopened.contentEl).find(e => e['aria-label'] === 'Mark session update as seen');
+  seen.checked = true; await seen.onchange();
+  assert(!descendants(reopened.contentEl).some(e => e.text === 'Campus parking changed.'));
+  controlPlan.session_update.details = ['Campus parking changed again.'];
+  dailyContents['Home/Planning/today.json'] = JSON.stringify(controlPlan);
+  await reopened.refresh();
+  assert(descendants(reopened.contentEl).some(e => e.text === 'Campus parking changed again.'), 'Changed details must reappear even when headline and ID match');
   reopened.addInput.value = 'Move lunch\n- [ ] This is input, not a task #ai';
   await reopened.refresh(); assert(reopened.addInput.value.startsWith('Move lunch'));
   assert(!descendants(reopened.contentEl).some(e => ['Send','Save instruction'].includes(e.text)));

@@ -41,6 +41,17 @@ var DEFAULTS = {
   ignoreFolders: "Reference/, Private/, Home/Now.md",
   workoutData: ".obsidian/plugins/workout-ledger/data.json"
 };
+function updateDetails(update) {
+  return Array.isArray(update?.details) ? update.details.filter(item => typeof item === "string" && item.trim()).map(item => item.trim()) : [];
+}
+function updateSignature(update) {
+  return JSON.stringify([update?.text || "", updateDetails(update)]);
+}
+function updateWasSeen(update, state) {
+  const seen = state?.seen_updates?.[update.id];
+  if (!seen) return false;
+  return seen.signature ? seen.signature === updateSignature(update) : seen.text === update.text && updateDetails(update).length === 0;
+}
 // The day grid always uses one linear minute scale, including reserved time.
 function planMinute(value) {
   if (typeof value !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$|^24:00$/.test(value)) throw new Error("Invalid plan time");
@@ -327,7 +338,7 @@ var AtlasNow = class extends import_obsidian.Plugin {
     const apply = data => {
       const state = data ? JSON.parse(data) : { schema_version: 1, seen_updates: {} };
       state.seen_updates = state.seen_updates || {};
-      state.seen_updates[update.id] = { text: update.text, seen_at: new Date().toISOString() };
+      state.seen_updates[update.id] = { text: update.text, signature: updateSignature(update), seen_at: new Date().toISOString() };
       return JSON.stringify(state, null, 2) + "\n";
     };
     if (file) await this.app.vault.process(file, apply);
@@ -1044,9 +1055,17 @@ var AtlasView = class extends import_obsidian.ItemView {
     const btn = head.createEl("button", { text: "↗", cls: "an-btn an-icon-btn", attr: { "aria-label": "Open today's note", title: "Today's note" } });
     btn.onclick = () => this.plugin.openToday();
     const update = daily?.plan.session_update;
-    if (update?.id && typeof update.text === "string" && update.text.trim() && viewState?.seen_updates?.[update.id]?.text !== update.text) {
-      const notice = root.createDiv({ cls: "an-session-update" });
-      notice.createDiv({ text: update.text });
+    if (update?.id && typeof update.text === "string" && update.text.trim() && !updateWasSeen(update, viewState)) {
+        const notice = root.createDiv({ cls: "an-session-update" });
+        const content = notice.createDiv({ cls: "an-update-content" });
+        content.createDiv({ text: update.text });
+        const items = updateDetails(update);
+        if (items.length) {
+          const details = content.createEl("details", { cls: "an-update-details" });
+          details.createEl("summary", { text: `More to know (${items.length})` });
+          const list = details.createEl("ul");
+          for (const item of items) list.createEl("li", { text: item });
+        }
       const label = notice.createEl("label", { cls: "an-seen" });
       const seen = label.createEl("input", { attr: { type: "checkbox", "aria-label": "Mark session update as seen" } });
       label.createSpan({ text: "Seen" });

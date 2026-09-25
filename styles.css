@@ -216,4 +216,10 @@
 .atlas-now .an-task-check input[type=checkbox]{margin:0;width:18px;height:18px;flex:none;cursor:inherit}
 .atlas-now .an-task-check:has(input:disabled){cursor:default;opacity:.6}
 .atlas-now .an-task-text{min-height:30px;align-self:center}
+.an-update-content{flex:1;min-width:0}
+.an-update-details{margin-top:8px;overflow-wrap:anywhere}
+.an-update-details summary{cursor:pointer;min-height:44px;display:list-item;align-content:center;color:var(--text-normal)}
+.an-update-details summary:hover{color:var(--interactive-accent)}
+.an-update-details ul{margin:0;padding-left:20px}
+.an-update-details li{margin:0 0 8px;max-width:70ch}
 .atlas-now .an-task>.an-source-note{flex-basis:100%;margin-left:54px}
