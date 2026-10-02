@@ -223,3 +223,23 @@
 .an-update-details ul{margin:0;padding-left:20px}
 .an-update-details li{margin:0 0 8px;max-width:70ch}
 .atlas-now .an-task>.an-source-note{flex-basis:100%;margin-left:54px}
+
+/* Persistent priorities share the source checkbox with every other task view. */
+.an-high-priority{margin:0 0 16px;padding:14px 12px;border:1px solid var(--interactive-accent);border-radius:8px;background:var(--background-secondary);color:var(--text-normal)}
+@supports (color:color-mix(in srgb,black,white)){.an-high-priority{background:color-mix(in srgb,var(--interactive-accent) 9%,var(--background-primary))}}
+.an-high-priority h2{font-size:18px;font-weight:650;line-height:1.3;margin:0 0 6px}
+.an-priority-help,.an-quick-status{font-size:12px;line-height:1.5;color:var(--text-normal)}
+.an-high-priority .an-task{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--background-modifier-border)}
+.an-high-priority .an-task:last-child{border-bottom:0;padding-bottom:0}
+.an-high-priority .an-task>.an-source-note{grid-column:2 / -1;margin:0}
+.atlas-now .an-priority-toggle{flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:0;background:transparent;color:var(--text-normal);font-size:24px;border:1px solid transparent;touch-action:manipulation}
+.atlas-now .an-priority-toggle[aria-pressed=true]{color:var(--text-normal);background:var(--background-primary);border-color:var(--interactive-accent)}
+.atlas-now .an-priority-toggle:hover{background:var(--background-secondary);border-color:var(--interactive-accent)}
+.an-quick-add{margin:0 0 20px;display:flex;flex-direction:column;gap:8px}
+.an-quick-add>label{font-weight:600}
+.atlas-now .an-quick-add input[type=text]{display:block;margin-top:6px;width:100%;min-width:0;height:44px;padding:8px 10px;font:inherit;font-size:16px;background:var(--background-primary);color:var(--text-normal);border:1px solid var(--background-modifier-border);border-radius:6px}
+.atlas-now .an-quick-add input::placeholder{color:var(--text-normal);opacity:.8}
+.an-quick-controls{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.an-quick-controls label{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}
+.an-quick-controls input{margin:0}
+.atlas-now .an-quick-controls .an-btn{min-height:44px;color:var(--text-normal);background:var(--background-secondary);border:1px solid var(--background-modifier-border)}

@@ -31,6 +31,7 @@ const output = process.argv[2];
         window.contents={
           'Home/Questions for Boss.md':'## Open\n- A fixture question? [priority:: high]\n',
           'Home/Instructions from Boss.md':'# Instructions\n',
+          'Home/Tasks.md':'# Tasks\n- [ ] Keep this priority #me [priority:: high] ^task-priority\n',
           'Life/Tasks.md':'- [ ] First fixture action #me ^task-first\n- [ ] Second fixture action #me ^task-second\n- [ ] Third fixture action #me ^task-third\n',
           'Home/Agents/old/before/Tasks.md':'- [ ] First fixture action #me ^task-first\n',
           'Home/Planning/today.json':JSON.stringify({schema_version:1,date:'2026-09-22',blocks:[],unscheduled_task_ids:['task-first','task-second','task-third'],session_update:{id:'fixture-notice',text:'Important facts appear here.',details:['Campus parking changes Friday and Saturday.','A confirmed deadline moved to next Tuesday.','<b>This remains plain text.</b>']}})
@@ -54,6 +55,31 @@ const output = process.argv[2];
       const disclosureRect=await disclosure.locator('summary').boundingBox();assert(disclosureRect.height>=44);
       if(output) await page.screenshot({path:path.join(output,`atlas-tasks-${width}.png`),fullPage:true});
       const input=page.locator('.an-instruction textarea');
+      // Priority is reversible, durable source metadata, independent of the plan.
+      const priorityPanel = page.locator('.an-high-priority');
+      assert.equal(await priorityPanel.locator('.an-task').count(), 1);
+      const priorityStar = priorityPanel.getByRole('button', {name:'High priority: Keep this priority', exact:true});
+      const starRect = await priorityStar.boundingBox(); assert(starRect.width>=44 && starRect.height>=44);
+      await priorityStar.click();
+      await page.waitForFunction(()=>document.querySelector('.an-high-priority h2').textContent==='High priority (0)');
+      assert(await page.evaluate(()=>contents['Home/Tasks.md'].includes('- [ ] Keep this priority #me [priority:: normal]')));
+      await page.locator('.an-backlog summary').first().click();
+      await page.getByRole('button',{name:'High priority: Keep this priority',exact:true}).click();
+      await page.waitForFunction(()=>document.querySelector('.an-high-priority h2').textContent==='High priority (1)');
+      const quick = page.getByRole('textbox',{name:'Add a task',exact:true});
+      await quick.fill('Directly captured task');
+      await page.locator('.an-quick-controls input').check();
+      await quick.press('Enter');
+      await page.waitForFunction(()=>document.querySelector('.an-high-priority h2').textContent==='High priority (2)');
+      assert(await page.evaluate(()=>contents['Home/Tasks.md'].includes('Directly captured task #me') && !contents['Home/Instructions from Boss.md'].includes('Directly captured task')));
+      await quick.fill('Keep failed capture');
+      await page.evaluate(()=>{window.failWrite=true;});
+      await quick.press('Enter');
+      await page.waitForFunction(()=>document.querySelector('.an-quick-status').textContent.includes('Could not add task'));
+      assert.equal(await quick.inputValue(),'Keep failed capture');
+      await page.evaluate(()=>{window.failWrite=false;});
+      await quick.fill(''); await quick.blur();
+      await page.evaluate(()=>{window.initialInput=view.addInput;});
       await input.fill('Keep this draft and selection');
       await input.evaluate(e=>e.setSelectionRange(5,9));
       await page.evaluate(async()=>{contents['Life/Tasks.md']+='\nA note changed';await view.refresh({background:true});});
@@ -61,6 +87,7 @@ const output = process.argv[2];
       await input.evaluate(e=>e.blur());
       await page.evaluate(()=>view.refresh());
       const first=page.locator('.an-untimed input[type=checkbox]').first();
+      await first.scrollIntoViewIfNeeded();
       assert(await first.isEnabled(),'Backup duplicate disabled the checkbox');
       const target=first.locator('..');
       const rect=await target.boundingBox(); assert(rect.width>=44 && rect.height>=44);
@@ -93,6 +120,7 @@ const output = process.argv[2];
       assert.equal(await input.inputValue(),'Keep this draft and selection');
       for(const dark of [false,true]) {
         await page.evaluate(dark=>document.documentElement.style.cssText=dark?'--background-primary:#222;--background-secondary:#333;--text-normal:#eee;--text-muted:#bbb;--background-modifier-border:#666':'',dark);
+        await page.evaluate(()=>document.querySelector('main').scrollTop=0);
         assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth && document.querySelector('main').scrollWidth<=innerWidth));
         if(output) await page.screenshot({path:path.join(output,`atlas-${width}-${dark?'dark':'light'}.png`),fullPage:true});
       }

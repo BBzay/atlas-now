@@ -1,9 +1,9 @@
 {
   "id": "atlas-now",
   "name": "Atlas Now",
-  "version": "0.7.6",
+  "version": "0.8.0",
   "minAppVersion": "1.4.0",
-  "description": "A proportional day timeline, important AI updates, one instruction box, and questions.",
+  "description": "Persistent high-priority tasks, direct task entry, a day timeline, important updates and questions.",
   "author": "Isaiah Horsager",
   "isDesktopOnly": false
 }

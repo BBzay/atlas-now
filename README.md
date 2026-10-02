@@ -8,8 +8,15 @@ An Obsidian panel for a proportional day timeline, next actions, important updat
 2. In BRAT's Add beta plugin dialog enter https://github.com/BBzay/atlas-now
 3. Enable Atlas Now under Community plugins, then run Atlas Now: Open Atlas Now.
 
-Already installed? In BRAT settings check for updates, then reload the plugin or restart Obsidian. Version 0.7.5 is the current release. No GitHub token is required. BRAT installs the plugin; existing sync carries notes and planning files. Installing plugin files on a computer does not update a phone using BRAT until a GitHub release is published.
+Already installed? In BRAT settings check for updates, then reload the plugin or restart Obsidian. Version 0.8.0 is the current release. No GitHub token is required. BRAT installs the plugin; existing sync carries notes and planning files. Installing plugin files on a computer does not update a phone using BRAT until a GitHub release is published.
 
+## Version 0.8.0
+
+A highlighted High priority list stays visible across dates and plan changes. Use the star beside any task to move it in or out; unstarring keeps the task open. Checkboxes mark completion while preserving source history. Flags are stored in the source note as `[priority:: high]` or `[priority:: normal]` and sync with the vault.
+
+Add a task saves directly to your Tasks note without an AI conversation. Press Enter or click Add task; optionally select High priority. New tasks get stable IDs. Tell Atlas still accepts instructions, and the command palette has Atlas Now: Add a task.
+
+Verified at 320/390/800px in light and dark themes with failure recovery, source edits, priority persistence and keyboard/touch checks. Actual phone installation remains a separate device check.
 ## Version 0.7.5
 
 This release brings the improvements since 0.2.2 to BRAT clients: the day timeline, merged Next actions, contextual discussions, keyboard input, question navigation and mobile layouts. Enter saves an instruction or answer; Shift+Enter inserts a newline. Saving instructions queues work for the next agent session; it does not start a background agent.

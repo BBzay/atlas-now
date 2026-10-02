@@ -39,6 +39,44 @@ function setup(contents) {
 const descendants = e => [e, ...e.children.flatMap(descendants)];
 async function tests() {
   {
+    const content = {'Home/Tasks.md': '# Tasks\n- [ ] Existing task #me ^task-existing\n- [/] Claimed task #ai ^task-claimed ⏳ other-agent\n'};
+    const p = setup(content).plugin;
+    const original = (await p.collectTasks()).find(t => t.raw.includes('^task-existing'));
+    await p.setTaskPriority(original, true);
+    assert(content['Home/Tasks.md'].includes('- [ ] Existing task #me [priority:: high] ^task-existing'));
+    let tasks = await p.collectTasks();
+    assert.equal(tasks.find(t => t.highPriority).text, 'Existing task');
+    // A stale row must preserve later source edits while targeting the stable ID.
+    content['Home/Tasks.md'] = content['Home/Tasks.md'].replace('Existing task', 'Edited task');
+    await p.setTaskPriority(original, false);
+    assert(content['Home/Tasks.md'].includes('- [ ] Edited task #me [priority:: normal] ^task-existing'));
+    assert.equal((await p.collectTasks()).length, 2, 'Unstarring never removes or completes work');
+    const claimed = (await p.collectTasks()).find(t => t.claimed);
+    await p.setTaskPriority(claimed, true);
+    assert(content['Home/Tasks.md'].includes('[priority:: high] ^task-claimed ⏳ other-agent'));
+    await assert.rejects(() => p.toggleTask(claimed), /in progress/);
+    const id = await p.addTask('New task\nwith details', 'me', undefined, true);
+    assert(id.startsWith('task-quick-'));
+    tasks = await p.collectTasks();
+    const added = tasks.find(t => t.raw.includes('^' + id));
+    assert.equal(added.text, 'New task with details');
+    assert(added.highPriority && added.owner === 'me');
+    const view = new context.View({}, p); view.contentEl = new Element({});
+    await view.refresh();
+    assert(descendants(view.contentEl).some(e => e.text === 'High priority (2)'), 'Visible without any day plan or index');
+    const reloaded = setup(content).plugin;
+    assert.equal((await reloaded.collectTasks()).filter(t => t.highPriority).length, 2, 'Priority survives reload');
+    await p.toggleTask(added);
+    assert(content['Home/Tasks.md'].includes('[x] New task with details'), 'Checkoff retains source history');
+    await assert.rejects(() => p.setTaskPriority(added, false), /Task changed/);
+    assert.equal((await p.collectTasks()).length, 2);
+    const beforeFailure = content['Home/Tasks.md'];
+    p.app.vault.process = async () => { throw Error('disk unavailable'); };
+    await assert.rejects(() => p.setTaskPriority(original, true), /disk unavailable/);
+    assert.equal(content['Home/Tasks.md'], beforeFailure);
+    console.log('PASS: persistent priorities, safe demotion, concurrent edits, claims, direct capture and no-plan visibility');
+  }
+  {
   // Backups once appeared as live duplicates, disabling canonical checkboxes.
   const reliabilityContents = {
     'Life/Real.md': '- [ ] Real action #me ^task-real\n',

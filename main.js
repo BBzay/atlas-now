@@ -128,7 +128,7 @@ function ownerOf(s) {
   return "none";
 }
 function stripTags(s) {
-  return s.replace(/(^|\s)#(me|ai|together)\b/gi, "").replace(/📅\s*\d{4}-\d{2}-\d{2}/, "").replace(/(?:^|\s)\^task-[\w-]+(?=\s|$)/, "").trim();
+  return s.replace(/(^|\s)#(me|ai|together)\b/gi, "").replace(/(?:📅|➕)\s*\d{4}-\d{2}-\d{2}/g, "").replace(/\s*\[priority::[^\]]*\]/gi, "").replace(/(?:^|\s)\^task-[\w-]+(?=\s|$)/, "").trim();
 }
 function vaultPath(value, fallback) {
   const text = typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -188,6 +188,7 @@ var AtlasNow = class extends import_obsidian.Plugin {
     this.addRibbonIcon("compass", "Atlas Now", () => this.activateView());
     this.addCommand({ id: "open", name: "Open Atlas Now", callback: () => this.activateView() });
     this.addCommand({ id: "add-task", name: "Write an instruction", callback: () => this.activateView(true) });
+    this.addCommand({ id: "quick-add-task", name: "Add a task", callback: async () => { await this.activateView(); this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view.quickInput?.focus(); } });
     this.addCommand({ id: "open-today", name: "Open today's daily note", callback: () => this.openToday() });
     this.addCommand({ id: "sync-workouts", name: "Sync workouts into daily notes", callback: () => this.syncWorkouts() });
     this.addCommand({ id: "refresh", name: "Refresh Atlas Now", callback: () => this.activateView() });
@@ -371,7 +372,7 @@ var AtlasNow = class extends import_obsidian.Plugin {
         if (!m) continue;
         const owner = ownerOf(m[2]);
         const due = m[2].match(/📅\s*(\d{4}-\d{2}-\d{2})/)?.[1];
-        out.push({ file, line: ln, raw, text: stripTags(m[2]), owner, done: false, claimed: m[1] === "/", due, project });
+        out.push({ file, line: ln, raw, text: stripTags(m[2]), owner, done: false, claimed: m[1] === "/", due, project, highPriority: /\[priority::\s*high\s*\]/i.test(m[2]) });
       }
     }
     out.sort((a, b) => {
@@ -485,13 +486,36 @@ var AtlasNow = class extends import_obsidian.Plugin {
     });
     this.freshTaskFiles.add(t.file.path);
   }
-  async addTask(text, owner, due) {
+  async setTaskPriority(t, high) {
+    await this.app.vault.process(t.file, data => {
+      const newline = data.includes("\r\n") ? "\r\n" : "\n";
+      const lines = data.split(/\r?\n/);
+      const id = taskBlockId(t.raw);
+      const matches = noteContent(data).body.map((line, i) => /^\s*(?:[-*+]|\d+[.)])\s+\[[ /]\]\s/.test(line) &&
+        (id ? taskBlockId(line) === id : lines[i] === t.raw) ? i : -1).filter(i => i >= 0);
+      if (matches.length !== 1) throw new Error("Task changed; refresh before changing priority.");
+      const i = matches[0];
+      // Change only the flag. Keep the checkbox, stable ID, claim and all context.
+      lines[i] = lines[i].replace(/\s*\[priority::[^\]]*\]/gi, "");
+      const marker = `[priority:: ${high ? "high" : "normal"}]`;
+      lines[i] = id ? lines[i].replace("^" + id, marker + " ^" + id) : lines[i] + " " + marker;
+      return lines.join(newline);
+    });
+    this.freshTaskFiles.add(t.file.path);
+  }
+  async addTask(text, owner = "me", due, highPriority = false) {
+    const title = text.trim().replace(/[\r\n]+/g, " ");
+    if (!title) throw new Error("Write a task first.");
+    if (!["me", "ai", "together", "none"].includes(owner)) throw new Error("Invalid task owner.");
+    if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error("Invalid due date.");
     const path = (0, import_obsidian.normalizePath)(this.settings.tasksFile);
     let f = this.app.vault.getAbstractFileByPath(path);
     if (!(f instanceof import_obsidian.TFile)) f = await this.app.vault.create(path, "# Tasks\n\nQuick-added tasks. Move them to the project or note they belong to when it is obvious; otherwise they live here. Owner tags: #me \xB7 #ai \xB7 #together.\n\n");
-    const line = `- [ ] ${text.trim()}${owner !== "none" ? " #" + owner : ""}${due ? " \u{1F4C5} " + due : ""} \u2795 ${(0, import_obsidian.moment)().format("YYYY-MM-DD")}`;
-    await this.app.vault.append(f, (await this.app.vault.read(f)).endsWith("\n") ? line + "\n" : "\n" + line + "\n");
-    new import_obsidian.Notice("Added: " + text.trim());
+    const id = `task-quick-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    const line = `- [ ] ${title.replace(/(?:^|\s)\^task-[\w-]+(?=\s|$)/g, "").replace(/\s*\[priority::[^\]]*\]/gi, "")}${owner !== "none" ? " #" + owner : ""}${due ? " \u{1F4C5} " + due : ""} \u2795 ${(0, import_obsidian.moment)().format("YYYY-MM-DD")}${highPriority ? " [priority:: high]" : ""} ^${id}`;
+    await this.app.vault.process(f, data => data + (data.endsWith("\n") ? "" : "\n") + line + "\n");
+    this.freshTaskFiles.add(f.path);
+    return id;
   }
   async answerQuestion(q, answer) {
     await this.app.vault.process(q.file, (data) => {
@@ -671,8 +695,75 @@ var AtlasView = class extends import_obsidian.ItemView {
       if (current) label.onclick = () => this.plugin.openAt(current.file, current.line);
       else row.createSpan({ cls: "an-source-note", text: "Source needs review" });
       if (current?.claimed) row.createSpan({ cls: "an-source-note", text: "In progress" });
+      if (current) this.renderPriorityButton(row, current);
       cb.onchange = () => this.completeTask(current, cb);
     }
+  }
+  renderPriorityButton(row, task) {
+    const button = row.createEl("button", { cls: "an-btn an-priority-toggle", text: task.highPriority ? "★" : "☆", attr: {
+      type: "button", "aria-pressed": String(!!task.highPriority),
+      "aria-label": `High priority: ${task.text}`, title: task.highPriority ? "Remove from high priority (keep task)" : "Make high priority"
+    } });
+    button.onclick = async () => {
+      if (button.disabled) return;
+      button.disabled = true;
+      this.pendingTaskWrites = (this.pendingTaskWrites || 0) + 1;
+      try { await this.plugin.setTaskPriority(task, !task.highPriority); }
+      catch (error) { new import_obsidian.Notice("Could not change priority: " + error.message); }
+      finally { button.disabled = false; this.pendingTaskWrites--; await this.refresh(); }
+    };
+  }
+  renderPriorityTasks(parent, tasks) {
+    const selected = tasks.filter(t => t.highPriority);
+    const panel = parent.createEl("section", { cls: "an-high-priority", attr: { "aria-label": "High priority tasks" } });
+    panel.createEl("h2", { text: `High priority (${selected.length})` });
+    panel.createDiv({ cls: "an-priority-help", text: "Star to change priority. Check off when finished." });
+    if (!selected.length) panel.createDiv({ cls: "an-empty", text: "Star any task to keep it here until it is finished." });
+    for (const task of selected) {
+      const row = panel.createDiv({ cls: "an-task" });
+      const label = row.createEl("label", { cls: "an-task-check", attr: { "aria-label": `Complete: ${task.text}` } });
+      const check = label.createEl("input", { attr: { type: "checkbox", "aria-label": task.text } });
+      check.disabled = !!task.claimed;
+      check.onchange = () => this.completeTask(task, check);
+      const title = row.createEl("button", { cls: "an-task-text an-text-button", text: task.text, attr: { type: "button", "aria-label": `Open task: ${task.text}` } });
+      title.onclick = () => this.plugin.openAt(task.file, task.line);
+      this.renderPriorityButton(row, task);
+      if (task.claimed) row.createSpan({ cls: "an-source-note", text: "In progress" });
+    }
+  }
+  renderQuickAdd(parent) {
+    const form = parent.createEl("form", { cls: "an-quick-add" });
+    const label = form.createEl("label", { text: "Add a task" });
+    const input = this.quickInput = label.createEl("input", { attr: { type: "text", placeholder: "What do you need to do?", "aria-label": "Add a task", autocomplete: "off" } });
+    input.value = this.quickDraft || "";
+    input.oninput = () => { this.quickDraft = input.value; };
+    const controls = form.createDiv({ cls: "an-quick-controls" });
+    const priorityLabel = controls.createEl("label");
+    const priority = priorityLabel.createEl("input", { attr: { type: "checkbox" } });
+    priority.checked = !!this.quickHigh;
+    priority.onchange = () => { this.quickHigh = priority.checked; };
+    priorityLabel.createSpan({ text: "High priority" });
+    const add = controls.createEl("button", { cls: "an-btn", text: "Add task", attr: { type: "submit" } });
+    const status = form.createDiv({ cls: "an-quick-status", text: this.quickStatus || "Enter to add directly to your tasks.", attr: { role: "status", "aria-live": "polite" } });
+    const submit = async () => {
+      if (!input.value.trim() || this.addingQuickTask) return;
+      this.addingQuickTask = true; input.disabled = add.disabled = priority.disabled = true;
+      let saved = false;
+      try {
+        await this.plugin.addTask(input.value, "me", undefined, priority.checked);
+        saved = true; input.value = this.quickDraft = "";
+        this.quickStatus = priority.checked ? "Added to high priority." : "Added to your tasks.";
+        // Make a normal quick-add immediately visible without needing a plan refresh.
+        if (!priority.checked) { this.backlogOpen = true; this.tab = "me"; }
+      } catch (error) { status.textContent = this.quickStatus = "Could not add task. Your text is still here. " + error.message; }
+      finally { this.addingQuickTask = false; input.disabled = add.disabled = priority.disabled = false; }
+      if (saved) await this.refresh();
+      (saved ? this.quickInput : input).focus({ preventScroll: true });
+    };
+    form.onsubmit = e => { e.preventDefault(); return submit(); };
+    input.onkeydown = e => {
+      if (e.key === "Enter") { e.preventDefault(); if (!e.isComposing && !e.repeat) return submit(); }
+    };
   }
   renderNextActions(parent, history, current, index, tasks, scan) {
     const clock = zonedClock(current?.timezone || "America/Chicago");
@@ -989,7 +1080,7 @@ var AtlasView = class extends import_obsidian.ItemView {
   }
   async renderRefresh({ background = false } = {}) {
     if (background && this.interacting()) { this.deferRefresh(); return; }
-    if (this.pendingTaskWrites || this.sendingAnswer || this.sendingInstruction || this.savingSeen) { this.deferRefresh(); return; }
+    if (this.pendingTaskWrites || this.addingQuickTask || this.sendingAnswer || this.sendingInstruction || this.savingSeen) { this.deferRefresh(); return; }
     const previousInstruction = this.addInput;
     const instructionFocused = previousInstruction && previousInstruction.ownerDocument.activeElement === previousInstruction;
     this.rememberQuestionDraft();
@@ -1016,7 +1107,7 @@ var AtlasView = class extends import_obsidian.ItemView {
     let viewState = null;
     let viewStateError = false;
     try { viewState = await this.plugin.readJson(this.plugin.settings.viewStateFile); } catch (_) { viewStateError = true; }
-    if (this.closed || refreshId !== this.refreshId || this.pendingTaskWrites || this.sendingAnswer || this.sendingInstruction || this.savingSeen) return;
+    if (this.closed || refreshId !== this.refreshId || this.pendingTaskWrites || this.addingQuickTask || this.sendingAnswer || this.sendingInstruction || this.savingSeen) return;
     if (background && this.interacting()) { this.deferRefresh(); return; }
     this.refreshDeferred = false;
     const outbox = this.plugin.collectOutbox();
@@ -1054,6 +1145,8 @@ var AtlasView = class extends import_obsidian.ItemView {
     refreshButton.onclick = () => this.refresh();
     const btn = head.createEl("button", { text: "↗", cls: "an-btn an-icon-btn", attr: { "aria-label": "Open today's note", title: "Today's note" } });
     btn.onclick = () => this.plugin.openToday();
+    this.renderPriorityTasks(root, tasks);
+    this.renderQuickAdd(root);
     const update = daily?.plan.session_update;
     if (update?.id && typeof update.text === "string" && update.text.trim() && !updateWasSeen(update, viewState)) {
         const notice = root.createDiv({ cls: "an-session-update" });
@@ -1150,6 +1243,7 @@ var AtlasView = class extends import_obsidian.ItemView {
       cb.onchange = () => this.completeTask(t, cb);
       const txt = row.createEl("button", { cls: "an-task-text an-text-button", text: t.text, attr: { type: "button", "aria-label": `Open task: ${t.text}` } });
       txt.onclick = () => this.plugin.openAt(t.file, t.line);
+      this.renderPriorityButton(row, t);
       if (t.due) row.createDiv({ cls: "an-due" + (t.due < (0, import_obsidian.moment)().format("YYYY-MM-DD") ? " late" : ""), text: t.due });
       if (this.tab === "all" && t.owner !== "none") row.createDiv({ cls: "an-owner " + t.owner, text: t.owner });
     });
