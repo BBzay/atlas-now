@@ -39,21 +39,21 @@ function setup(contents) {
 const descendants = e => [e, ...e.children.flatMap(descendants)];
 async function tests() {
   {
-    const content = {'Home/Tasks.md': '# Tasks\n- [ ] Existing task #me ^task-existing\n- [/] Claimed task #ai ^task-claimed ⏳ other-agent\n'};
+    const content = {'Atlas/Interface/Tasks.md': '# Tasks\n- [ ] Existing task #me ^task-existing\n- [/] Claimed task #ai ^task-claimed ⏳ other-agent\n'};
     const p = setup(content).plugin;
     const original = (await p.collectTasks()).find(t => t.raw.includes('^task-existing'));
     await p.setTaskPriority(original, true);
-    assert(content['Home/Tasks.md'].includes('- [ ] Existing task #me [priority:: high] ^task-existing'));
+    assert(content['Atlas/Interface/Tasks.md'].includes('- [ ] Existing task #me [priority:: high] ^task-existing'));
     let tasks = await p.collectTasks();
     assert.equal(tasks.find(t => t.highPriority).text, 'Existing task');
     // A stale row must preserve later source edits while targeting the stable ID.
-    content['Home/Tasks.md'] = content['Home/Tasks.md'].replace('Existing task', 'Edited task');
+    content['Atlas/Interface/Tasks.md'] = content['Atlas/Interface/Tasks.md'].replace('Existing task', 'Edited task');
     await p.setTaskPriority(original, false);
-    assert(content['Home/Tasks.md'].includes('- [ ] Edited task #me [priority:: normal] ^task-existing'));
+    assert(content['Atlas/Interface/Tasks.md'].includes('- [ ] Edited task #me [priority:: normal] ^task-existing'));
     assert.equal((await p.collectTasks()).length, 2, 'Unstarring never removes or completes work');
     const claimed = (await p.collectTasks()).find(t => t.claimed);
     await p.setTaskPriority(claimed, true);
-    assert(content['Home/Tasks.md'].includes('[priority:: high] ^task-claimed ⏳ other-agent'));
+    assert(content['Atlas/Interface/Tasks.md'].includes('[priority:: high] ^task-claimed ⏳ other-agent'));
     await assert.rejects(() => p.toggleTask(claimed), /in progress/);
     const id = await p.addTask('New task\nwith details', 'me', undefined, true);
     assert(id.startsWith('task-quick-'));
@@ -67,36 +67,39 @@ async function tests() {
     const reloaded = setup(content).plugin;
     assert.equal((await reloaded.collectTasks()).filter(t => t.highPriority).length, 2, 'Priority survives reload');
     await p.toggleTask(added);
-    assert(content['Home/Tasks.md'].includes('[x] New task with details'), 'Checkoff retains source history');
+    assert(content['Atlas/Interface/Tasks.md'].includes('[x] New task with details'), 'Checkoff retains source history');
     await assert.rejects(() => p.setTaskPriority(added, false), /Task changed/);
     assert.equal((await p.collectTasks()).length, 2);
-    const beforeFailure = content['Home/Tasks.md'];
+    const beforeFailure = content['Atlas/Interface/Tasks.md'];
     p.app.vault.process = async () => { throw Error('disk unavailable'); };
     await assert.rejects(() => p.setTaskPriority(original, true), /disk unavailable/);
-    assert.equal(content['Home/Tasks.md'], beforeFailure);
+    assert.equal(content['Atlas/Interface/Tasks.md'], beforeFailure);
     console.log('PASS: persistent priorities, safe demotion, concurrent edits, claims, direct capture and no-plan visibility');
   }
   {
   // Backups once appeared as live duplicates, disabling canonical checkboxes.
   const reliabilityContents = {
-    'Life/Real.md': '- [ ] Real action #me ^task-real\n',
-    'Home/Agents/session/before/Home/Tasks.md': '- [ ] Real action #me ^task-real\n- [ ] Snapshot ghost #me ^task-ghost\n',
-    'Home/Automation/backups/Tasks.md': '- [x] Real action #me ^task-real\n',
+    'Atlas/Interface/Tasks.md': '# Tasks\n\n## Life\n- [ ] Real action #me ^task-real\n    - Context [[Life/Copy]] and https://example.com\n',
+    'Life/Copy.md': '- [ ] Real action #me ^task-real\n- [ ] Snapshot ghost #me ^task-ghost\n',
+    'Atlas/State/backups/Tasks.md': '- [x] Real action #me ^task-real\n',
     'Projects/Atlas/atlas-now-plugin/README.md': '- [ ] Example #me ^task-example\n',
-    'Home/Records/Canvas/Coursework tasks.md': '- [ ] Coursework #me ^task-course\n',
-    'Home/Planning/today.json': JSON.stringify({ schema_version: 1, date: '2026-09-08', blocks: [], unscheduled_task_ids: ['task-real'] }),
-    'Home/Planning/tasks.json': JSON.stringify({tasks:[{id:'task-real',identity:'explicit',source:'Life/Real.md',title:'Real action'}]})
+    'Atlas/State/today.json': JSON.stringify({ schema_version: 1, date: '2026-09-08', blocks: [], unscheduled_task_ids: ['task-real'] }),
+    'Atlas/State/tasks.json': JSON.stringify({tasks:[{id:'task-real',identity:'explicit',source:'Atlas/Interface/Tasks.md',title:'Real action'}]})
   };
   const reliability = setup(reliabilityContents).plugin;
   const rv = new context.View({}, reliability); rv.contentEl = new Element({});
   await rv.refresh();
   const live = descendants(rv.contentEl).find(e => e.title === 'Complete source task');
   assert(live && !live.disabled, 'Snapshot copies must not disable the real task');
-  assert.equal((await reliability.collectTasks()).length, 2);
-  assert(!reliability.relevantChange('Home/Agents/session/before/Home/Tasks.md'));
+  const scanned = await reliability.collectTasks();
+  assert.equal(scanned.length, 1, 'Only the task list (and Tell Atlas) holds tracked tasks');
+  assert.equal(scanned[0].project, 'Life', 'Task-list heading is the project');
+  assert.deepEqual([...scanned[0].notes], ['Context [[Life/Copy]] and https://example.com'], 'Indented lines are task context');
+  assert(!reliability.relevantChange('Atlas/State/backups/Tasks.md'));
   assert(!reliability.relevantChange('image.png'));
-  assert(reliability.relevantChange('Home/Planning/today.json'));
-  assert(reliability.relevantChange('Life/Real.md'));
+  assert(reliability.relevantChange('Atlas/State/today.json'));
+  assert(reliability.relevantChange('Life/Copy.md'));
+  assert(reliability.relevantChange('Atlas/State/history/2026-09-08-r1.json'));
   const stableInput = rv.addInput;
   await rv.refresh({background:true});
   assert.equal(rv.addInput, stableInput, 'Unchanged background data must not replace the DOM');
@@ -117,21 +120,21 @@ async function tests() {
   assert.equal(maxScans,1);
   reliability.scanNotes = realScan;
   const captured = (await reliability.collectTasks()).find(t=>t.raw.includes('^task-real'));
-  reliabilityContents['Life/Real.md'] = '# New heading\n- [ ] Real action #me ^task-real 📅 2026-09-23\n';
+  reliabilityContents['Atlas/Interface/Tasks.md'] = '# New heading\n- [ ] Real action #me ^task-real 📅 2026-09-23\n';
   await reliability.toggleTask(captured);
-  assert(reliabilityContents['Life/Real.md'].includes('[x] Real action #me'));
-  assert(reliabilityContents['Life/Real.md'].includes('📅 2026-09-23'), 'Preserve live metadata, not stale captured text');
-  const saved = reliabilityContents['Life/Real.md'];
-  await reliability.toggleTask(captured); assert.equal(reliabilityContents['Life/Real.md'],saved, 'Repeated completion is idempotent');
-  reliabilityContents['Life/Real.md'] = '- [ ] One #me ^task-real\n- [ ] Two #me ^task-real\n';
+  assert(reliabilityContents['Atlas/Interface/Tasks.md'].includes('[x] Real action #me'));
+  assert(reliabilityContents['Atlas/Interface/Tasks.md'].includes('📅 2026-09-23'), 'Preserve live metadata, not stale captured text');
+  const saved = reliabilityContents['Atlas/Interface/Tasks.md'];
+  await reliability.toggleTask(captured); assert.equal(reliabilityContents['Atlas/Interface/Tasks.md'],saved, 'Repeated completion is idempotent');
+  reliabilityContents['Atlas/Interface/Tasks.md'] = '- [ ] One #me ^task-real\n- [ ] Two #me ^task-real\n';
   await assert.rejects(()=>reliability.toggleTask(captured), /Task changed/);
-  reliabilityContents['Life/Real.md'] = '- [/] Claimed #me ^task-real\n';
+  reliabilityContents['Atlas/Interface/Tasks.md'] = '- [/] Claimed #me ^task-real\n';
   await assert.rejects(()=>reliability.toggleTask(captured), /in progress/);
   await rv.onClose();
   console.log('PASS: snapshot exclusion, canonical checkbox, stable background DOM, pointer race, coalesced scans, live metadata, idempotence and claim/duplicate guards');
   }
   const contents = {
-    'Home/Questions for Boss.md': '## Open\r\n- First?\r\n\r\n- Second?\r\n\r\n- Answered?\r\n\r\n  - **Human (2026-09-08):** Yes\r\n## Answered\r\n- Archived?\r\n',
+    'Atlas/Interface/Questions.md': '## Open\r\n- First?\r\n\r\n- Second?\r\n\r\n- Answered?\r\n\r\n  - **Human (2026-09-08):** Yes\r\n## Answered\r\n- Archived?\r\n',
     'Life/Topic.md': '---\ntags:\n  - unfinished\n---\n+ [ ] Untagged\n1. [ ] Owned #ai\n- [/] Claimed #me\n- [x] Finished\n```md\n- [ ] Example\n```\n<!--\n- [ ] Hidden\n-->\n',
     'Life/Inline.md': '#unfinished\n- [ ] Work #together',
     'Life/Code.md': '```\n#unfinished\n```',
@@ -139,6 +142,7 @@ async function tests() {
   };
   contents['Life/Topic.md'] = contents['Life/Topic.md'].replace(/\n/g, '\r\n');
   const { plugin } = setup(contents);
+  plugin.settings.taskSources = '*'; // parser check across notes; the default tracks only the task list
   const scan = await plugin.scanNotes();
   assert.equal((await plugin.collectTasks(scan)).length, 4);
   const firstTask = (await plugin.collectTasks(scan)).find(t => t.text === 'Untagged');
@@ -148,10 +152,10 @@ async function tests() {
   contents['Life/Topic.md'] = contents['Life/Topic.md'].replace('+ [x] Untagged ✅ 2026-09-08', '+ [ ] Untagged');
   assert.equal((await plugin.unfinishedNotes(scan)).length, 2);
   assert.equal((await plugin.collectQuestions()).filter(q => !q.answered).length, 2);
-  contents['Home/Questions for Boss.md'] = contents['Home/Questions for Boss.md'].replace(/\r\n/g, '\n');
+  contents['Atlas/Interface/Questions.md'] = contents['Atlas/Interface/Questions.md'].replace(/\r\n/g, '\n');
   assert.equal((await plugin.collectQuestions()).filter(q => !q.answered).length, 2);
-  contents['Home/Questions for Boss.md'] = contents['Home/Questions for Boss.md'].replace(/\n/g, '\r\n');
-  plugin.settings.questionsFile = ' Home\\Questions for Boss ';
+  contents['Atlas/Interface/Questions.md'] = contents['Atlas/Interface/Questions.md'].replace(/\n/g, '\r\n');
+  plugin.settings.questionsFile = ' Atlas\\Interface\\Questions ';
   assert.equal((await plugin.collectQuestions()).length, 3);
   const view = new context.View({}, plugin);
   view.contentEl = new Element({});
@@ -159,9 +163,9 @@ async function tests() {
   assert.equal(descendants(view.contentEl).filter(e => e.tag === 'textarea').length, 2);
   view.answerInput.value = 'First answer\nMore';
   await view.answerInput.onkeydown({ key: 'Enter', preventDefault() {} });
-  assert.equal(view.answerQuestionKey, 'Home/Questions for Boss.md:Second?');
+  assert.equal(view.answerQuestionKey, 'Atlas/Interface/Questions.md:Second?');
   assert.equal(view.answerInput.ownerDocument.activeElement, view.answerInput);
-  assert(contents['Home/Questions for Boss.md'].includes('\r\n    More'));
+  assert(contents['Atlas/Interface/Questions.md'].includes('\r\n    More'));
   view.answerInput.value = 'Draft';
   await view.refresh();
   assert.equal(view.answerInput.value, 'Draft');
@@ -176,7 +180,7 @@ async function tests() {
   plugin.settings.questionsFile = 'Missing.md';
   await view.refresh();
   assert(descendants(view.contentEl).some(e => e.text?.includes('File not found: Missing.md')));
-  const grouped = setup({'Home/Questions for Boss.md': '## Open\n### Projects\n- Later? [[Projects/Zebra/Hub]] [priority:: low]\n- Plan? [[Projects/Atlas/Hub]] [planning:: true]\n- Buy? [[Projects/Zebra/Hub]] [source:: tell-atlas]\n- Normal? [[Projects/Atlas/Hub]]\n## Answered\n- Old?\n'});
+  const grouped = setup({'Atlas/Interface/Questions.md': '## Open\n### Projects\n- Later? [[Projects/Zebra/Hub]] [priority:: low]\n- Plan? [[Projects/Atlas/Hub]] [planning:: true]\n- Buy? [[Projects/Zebra/Hub]] [source:: tell-atlas]\n- Normal? [[Projects/Atlas/Hub]]\n## Answered\n- Old?\n'});
   const queue = await grouped.plugin.collectQuestions();
   assert.equal(queue.length, 4);
   assert.equal(queue[0].project, 'Atlas');
@@ -189,7 +193,7 @@ async function tests() {
   await click('Next'); assert(nav.answerQuestionKey.includes('Buy?'));
   await click('Previous'); assert.equal(nav.answerInput.value, 'Keep this draft');
   assert(!descendants(nav.contentEl).some(e => ['Skip question', 'Skip project', 'Restore skipped'].includes(e.text)));
-  nav.skippedQuestions = new Set(['Home/Questions for Boss.md:Plan? [[Projects/Atlas/Hub]] [planning:: true]']);
+  nav.skippedQuestions = new Set(['Atlas/Interface/Questions.md:Plan? [[Projects/Atlas/Hub]] [planning:: true]']);
   nav.skippedProjects = new Set(['Atlas']);
   await nav.refresh(); assert(nav.answerQuestionKey.includes('Plan?'));
   await click('Next'); assert(nav.answerQuestionKey.includes('Buy?'));
@@ -231,7 +235,7 @@ async function tests() {
   assert.equal(nav.answerInput.value, 'Typed while refresh was pending');
   grouped.plugin.scanNotes = scanBeforeNavigation;
   // Explicit metadata overrides incidental words, across all projects.
-  const ranking = setup({'Home/Questions for Boss.md': '## Open\n- Low asks about today [[Projects/Alpha/Hub]] [priority:: low]\n- Normal this week [[Projects/Alpha/Hub]] [priority:: normal]\n- Urgent [[Projects/Zebra/Hub]] [priority:: high]\n- Promoted [[Projects/Zebra/Hub]] [priority:: low] [planning:: true]\n- Input [[Projects/Zebra/Hub]] [priority:: low] [source:: tell-atlas]\n- Legacy tomorrow [[Projects/Zebra/Hub]]\n## Answered\n'});
+  const ranking = setup({'Atlas/Interface/Questions.md': '## Open\n- Low asks about today [[Projects/Alpha/Hub]] [priority:: low]\n- Normal this week [[Projects/Alpha/Hub]] [priority:: normal]\n- Urgent [[Projects/Zebra/Hub]] [priority:: high]\n- Promoted [[Projects/Zebra/Hub]] [priority:: low] [planning:: true]\n- Input [[Projects/Zebra/Hub]] [priority:: low] [source:: tell-atlas]\n- Legacy tomorrow [[Projects/Zebra/Hub]]\n## Answered\n'});
   const ranked = await ranking.plugin.collectQuestions();
   assert.deepEqual(Array.from(ranked, q => q.priority), [0, 0, 0, 0, 1, 2]);
   assert(ranked[0].text.includes('Urgent'));
@@ -247,11 +251,11 @@ async function tests() {
   plugin.app.workspace = { getLeavesOfType: () => [], getLeaf: () => leaf, getRightLeaf: () => { throw Error('desktop-only path'); }, revealLeaf: () => {} };
   await plugin.activateView();
   const dailyContents = {
-    'Home/Questions for Boss.md': '## Open\n## Answered\n',
-    'Life/Focus.md': '- [ ] Focus work #me ^task-focus\n',
-    'Home/Planning/feedback.md': '# Feedback\n',
-    'Home/Planning/today.json': JSON.stringify({ schema_version: 1, date: '2026-09-08', status: 'provisional', blocks: [{ start: '08:30', end: '09:30', title: 'Deep work', task_ids: ['task-focus'] }] }),
-    'Home/Planning/tasks.json': JSON.stringify({ tasks: [{ id: 'task-focus', identity: 'explicit', source: 'Life/Focus.md', title: 'Focus work' }] })
+    'Atlas/Interface/Questions.md': '## Open\n## Answered\n',
+    'Atlas/Interface/Tasks.md': '- [ ] Focus work #me ^task-focus\n',
+    'Atlas/State/feedback.md': '# Feedback\n',
+    'Atlas/State/today.json': JSON.stringify({ schema_version: 1, date: '2026-09-08', status: 'provisional', blocks: [{ start: '08:30', end: '09:30', title: 'Deep work', task_ids: ['task-focus'] }] }),
+    'Atlas/State/tasks.json': JSON.stringify({ tasks: [{ id: 'task-focus', identity: 'explicit', source: 'Atlas/Interface/Tasks.md', title: 'Focus work' }] })
   };
   const dailyPlugin = setup(dailyContents).plugin;
   const dailyView = new context.View({}, dailyPlugin);
@@ -263,35 +267,35 @@ async function tests() {
   assert.equal(planned.type, 'checkbox');
   assert(descendants(dailyView.contentEl).filter(e => e.tag === 'input' && e.type === 'checkbox').length >= 2);
   await planned.onchange();
-  assert(dailyContents['Life/Focus.md'].includes('[x] Focus work #me ✅ 2026-09-08 ^task-focus'));
+  assert(dailyContents['Atlas/Interface/Tasks.md'].includes('[x] Focus work #me ✅ 2026-09-08 ^task-focus'));
   assert(!descendants(dailyView.contentEl).some(e => e.cls === 'an-task-text' && e.text === 'Focus work'), 'Completed task must disappear even when the plan index is stale');
-  dailyContents['Life/Focus.md'] = '- [ ] Focus work #me ^task-focus\n';
-  const unassignedPlan = JSON.parse(dailyContents['Home/Planning/today.json']);
+  dailyContents['Atlas/Interface/Tasks.md'] = '- [ ] Focus work #me ^task-focus\n';
+  const unassignedPlan = JSON.parse(dailyContents['Atlas/State/today.json']);
   unassignedPlan.blocks = [];
   unassignedPlan.unscheduled_task_ids = ['task-focus'];
-  dailyContents['Home/Planning/today.json'] = JSON.stringify(unassignedPlan);
+  dailyContents['Atlas/State/today.json'] = JSON.stringify(unassignedPlan);
   await dailyView.refresh();
   assert(descendants(dailyView.contentEl).some(e => e.text?.startsWith('Next actions (')));
   const unassigned = descendants(dailyView.contentEl).find(e => e.title === 'Complete source task');
   await unassigned.onchange();
-  assert(dailyContents['Life/Focus.md'].includes('[x] Focus work #me ✅ 2026-09-08 ^task-focus'));
+  assert(dailyContents['Atlas/Interface/Tasks.md'].includes('[x] Focus work #me ✅ 2026-09-08 ^task-focus'));
   let queued = null;
   dailyPlugin.addTask = async (text, owner) => { queued = { text, owner }; };
   await dailyPlugin.saveCorrection('Only one hour today');
-  assert(dailyContents['Home/Planning/feedback.md'].includes('Only one hour today'));
+  assert(dailyContents['Atlas/State/feedback.md'].includes('Only one hour today'));
   assert.equal(queued.owner, 'ai');
   assert(queued.text.includes('#^feedback-'));
-  dailyContents['Home/Instructions from Boss.md'] = '# Instructions\n';
-  dailyContents['Home/Planning/view-state.json'] = JSON.stringify({schema_version: 1, seen_updates: {}});
+  dailyContents['Atlas/Interface/Tell Atlas.md'] = '# Instructions\n';
+  dailyContents['Atlas/State/view-state.json'] = JSON.stringify({schema_version: 1, seen_updates: {}});
   const controlPlugin = setup(dailyContents).plugin;
   const controlView = new context.View({}, controlPlugin);
   controlView.contentEl = new Element({});
-  const controlPlan = JSON.parse(dailyContents['Home/Planning/today.json']);
+  const controlPlan = JSON.parse(dailyContents['Atlas/State/today.json']);
   controlPlan.session_update = {id: 'session-a', text: 'Gym removed today.'};
   controlPlan.summary = 'Agent planning rationale';
   controlPlan.source_status = {calendar: 'Unavailable'};
   controlPlan.blocks = [{start:'09:30',end:'09:50',title:'Hidden drive',kind:'break',display:'hidden',task_ids:[]}];
-  dailyContents['Home/Planning/today.json'] = JSON.stringify(controlPlan);
+  dailyContents['Atlas/State/today.json'] = JSON.stringify(controlPlan);
   await controlView.refresh();
   assert(!descendants(controlView.contentEl).some(e => ['Change my day','Add a task… (Enter)','Hidden drive'].includes(e.text)));
   const system = controlView.contentEl.children.at(-1);
@@ -311,10 +315,10 @@ async function tests() {
   await reopened.refresh();
   assert(!descendants(reopened.contentEl).some(e => e.text === 'Gym removed today.'));
   controlPlan.session_update = {id: 'session-b', text: 'Lunch changed.'};
-  dailyContents['Home/Planning/today.json'] = JSON.stringify(controlPlan);
+  dailyContents['Atlas/State/today.json'] = JSON.stringify(controlPlan);
   await reopened.refresh(); assert(descendants(reopened.contentEl).some(e => e.text === 'Lunch changed.'));
   controlPlan.session_update.details = ['Campus parking changed.', '  ', null, '<b>plain text</b>'];
-  dailyContents['Home/Planning/today.json'] = JSON.stringify(controlPlan);
+  dailyContents['Atlas/State/today.json'] = JSON.stringify(controlPlan);
   await reopened.refresh();
   assert(descendants(reopened.contentEl).some(e => e.tag === 'summary' && e.text === 'More to know (2)'));
   assert(descendants(reopened.contentEl).some(e => e.tag === 'li' && e.text === '<b>plain text</b>'));
@@ -322,7 +326,7 @@ async function tests() {
   seen.checked = true; await seen.onchange();
   assert(!descendants(reopened.contentEl).some(e => e.text === 'Campus parking changed.'));
   controlPlan.session_update.details = ['Campus parking changed again.'];
-  dailyContents['Home/Planning/today.json'] = JSON.stringify(controlPlan);
+  dailyContents['Atlas/State/today.json'] = JSON.stringify(controlPlan);
   await reopened.refresh();
   assert(descendants(reopened.contentEl).some(e => e.text === 'Campus parking changed again.'), 'Changed details must reappear even when headline and ID match');
   reopened.addInput.value = 'Move lunch\n- [ ] This is input, not a task #ai';
@@ -340,9 +344,9 @@ async function tests() {
   controlPlugin.app.vault.process = processControl;
   await reopened.addInput.onkeydown({key:'Enter',preventDefault(){}});
   assert.equal(reopened.addInput.value, '');
-  assert(dailyContents['Home/Instructions from Boss.md'].includes('> Move lunch\n> - [ ] This is input, not a task #ai'));
-  assert.equal((dailyContents['Home/Instructions from Boss.md'].match(/Handle Boss instruction above/g)||[]).length,1);
-  const queuedInstructions = (await controlPlugin.collectTasks(await controlPlugin.scanNotes())).filter(t => t.file.path === 'Home/Instructions from Boss.md');
+  assert(dailyContents['Atlas/Interface/Tell Atlas.md'].includes('> Move lunch\n> - [ ] This is input, not a task #ai'));
+  assert.equal((dailyContents['Atlas/Interface/Tell Atlas.md'].match(/Handle Boss instruction above/g)||[]).length,1);
+  const queuedInstructions = (await controlPlugin.collectTasks(await controlPlugin.scanNotes())).filter(t => t.file.path === 'Atlas/Interface/Tell Atlas.md');
   assert.equal(queuedInstructions.length,1);
   assert.equal(queuedInstructions[0].owner,'ai');
   const layout = context.timelineLayout([
@@ -371,13 +375,13 @@ async function tests() {
     {id:'travel',start:'10:20',end:'10:40',kind:'break',display:'hidden',title:'Reserved journey',task_ids:[]}
   ]};
   const activityContents = {
-    'Home/Planning/today.json':JSON.stringify(activityPlan),
-    'Home/Planning/history/2026-09-07-r1.json':JSON.stringify({...historyPlan,blocks:[...historyPlan.blocks,{id:'earlier-revision',title:'Earlier revision action',start:'13:00',end:'13:15',task_ids:['task-earlier-revision']}]}),
-    'Home/Planning/history/2026-09-07-r2.json':JSON.stringify({...historyPlan,revision:2}),
-    'Home/Planning/tasks.json':JSON.stringify({tasks:[{id:'task-focus',identity:'explicit',source:'Life/Focus.md',title:'Focus'}]}),
-    'Life/Focus.md':'- [ ] Focus #me ^task-focus',
-    'Home/Instructions from Boss.md':'# Instructions\n',
-    'Home/Questions for Boss.md':'## Open\n## Answered\n'
+    'Atlas/State/today.json':JSON.stringify(activityPlan),
+    'Atlas/State/history/2026-09-07-r1.json':JSON.stringify({...historyPlan,blocks:[...historyPlan.blocks,{id:'earlier-revision',title:'Earlier revision action',start:'13:00',end:'13:15',task_ids:['task-earlier-revision']}]}),
+    'Atlas/State/history/2026-09-07-r2.json':JSON.stringify({...historyPlan,revision:2}),
+    'Atlas/State/tasks.json':JSON.stringify({tasks:[{id:'task-focus',identity:'explicit',source:'Atlas/Interface/Tasks.md',title:'Focus'}]}),
+    'Atlas/Interface/Tasks.md':'- [ ] Focus #me ^task-focus',
+    'Atlas/Interface/Tell Atlas.md':'# Instructions\n',
+    'Atlas/Interface/Questions.md':'## Open\n## Answered\n'
   };
   const a = setup(activityContents);
   a.plugin.app.vault.getFiles = () => a.files;
@@ -389,7 +393,7 @@ async function tests() {
   av.updateTimelineClock(new Date('2027-09-08T22:00:00Z'));
   await av.refresh();
   assert.equal(activityCheckbox().checked,false);
-  assert(!activityContents['Home/Planning/activity-confirmations.json']);
+  assert(!activityContents['Atlas/State/activity-confirmations.json']);
   assert.equal((await a.plugin.collectActivityHistory(activityPlan)).length,2,'latest revision per day deduplicates history');
   assert.equal((await a.plugin.collectActivityHistory(activityPlan))[1].historical_task_titles['task-earlier-revision'],'Earlier revision action','removed blocks in older revisions preserve their unfinished task references');
   const earlier = descendants(av.contentEl).find(e=>e['aria-label']==='I completed Send enrollment email on 2026-09-07');
@@ -400,12 +404,12 @@ async function tests() {
   assert(descendants(reservedSection).some(e=>e.text==='Discuss with Atlas'));
   await assert.rejects(a.plugin.setActivityConfirmation(activityPlan,activityPlan.blocks[1],true,null),/source task checkbox/);
   await assert.rejects(a.plugin.setActivityConfirmation(historyPlan,historyPlan.blocks[1],true,null),/routine activities/);
-  const sourceBefore = activityContents['Life/Focus.md'];
+  const sourceBefore = activityContents['Atlas/Interface/Tasks.md'];
   let acb=activityCheckbox(); acb.checked=true; await acb.onchange();
   assert.equal(activityCheckbox().checked,true);
-  assert.equal(activityContents['Life/Focus.md'],sourceBefore,'activity checkbox cannot complete project task');
+  assert.equal(activityContents['Atlas/Interface/Tasks.md'],sourceBefore,'activity checkbox cannot complete project task');
   assert(descendants(av.contentEl).some(e=>e['aria-label']==='I completed Send enrollment email on 2026-09-07'),'other recurrence remains in Next actions, gym is excluded');
-  let ledger=JSON.parse(activityContents['Home/Planning/activity-confirmations.json']);
+  let ledger=JSON.parse(activityContents['Atlas/State/activity-confirmations.json']);
   assert.equal(Object.values(ledger.confirmations)[0].evidence,'boss-checkbox');
   const reopenedActivity = new context.View({},a.plugin); reopenedActivity.contentEl=new Element({}); await reopenedActivity.refresh();
   assert(descendants(reopenedActivity.contentEl).find(e=>e['aria-label']==='I completed Send enrollment email on 2026-09-08').checked);
@@ -416,7 +420,7 @@ async function tests() {
   a.plugin.app.vault.process=originalProcess;
   acb=activityCheckbox(); acb.checked=false; await acb.onchange();
   assert.equal(activityCheckbox().checked,false);
-  ledger=JSON.parse(activityContents['Home/Planning/activity-confirmations.json']);
+  ledger=JSON.parse(activityContents['Atlas/State/activity-confirmations.json']);
   assert.equal(Object.values(ledger.confirmations)[0].history.length,1,'reopen retains confirmation history');
   await assert.rejects(a.plugin.setActivityConfirmation(activityPlan,activityPlan.blocks[0],true,null),/Activity changed/);
   const discussion = descendants(av.contentEl).find(e=>e.text==='Discuss with Atlas'); discussion.onclick();
@@ -430,15 +434,15 @@ async function tests() {
   assert.equal(restored.value,msg.value);
   a.plugin.app.vault.process=originalProcess;
   await descendants(av.contentEl).find(e=>e.text==='Save message').onclick();
-  assert(activityContents['Home/Instructions from Boss.md'].includes('Date: 2026-09-08'));
-  assert(activityContents['Home/Instructions from Boss.md'].includes('Only attended half'));
+  assert(activityContents['Atlas/Interface/Tell Atlas.md'].includes('Date: 2026-09-08'));
+  assert(activityContents['Atlas/Interface/Tell Atlas.md'].includes('Only attended half'));
   assert.equal(activityCheckbox().checked,false,'discussion never completes activity');
-  assert.equal(activityContents['Life/Focus.md'],sourceBefore);
+  assert.equal(activityContents['Atlas/Interface/Tasks.md'],sourceBefore);
   acb=activityCheckbox(); acb.checked=true; await acb.onchange();
-  activityPlan.blocks[0].title='Different work'; activityContents['Home/Planning/today.json']=JSON.stringify(activityPlan);
+  activityPlan.blocks[0].title='Different work'; activityContents['Atlas/State/today.json']=JSON.stringify(activityPlan);
   await av.refresh();
   assert.equal(descendants(av.contentEl).find(e=>e['aria-label']==='I completed Different work on 2026-09-08').checked,false,'changed scope cannot inherit confirmation');
-  activityContents['Home/Planning/activity-confirmations.json']='broken';
+  activityContents['Atlas/State/activity-confirmations.json']='broken';
   await av.refresh();
   assert(descendants(av.contentEl).some(e=>e.text?.includes('Activity confirmations could not be read')));
   assert(descendants(av.contentEl).find(e=>e['aria-label']==='I completed Different work on 2026-09-08').disabled);
@@ -459,7 +463,7 @@ async function tests() {
   const scheduledRoot=new Element({});
   av.renderNextActions(scheduledRoot,[previousActions],{date:'2026-09-08',blocks:[],unscheduled_task_ids:['task-email']},[],[],{notes:[]});
   assert.equal(descendants(scheduledRoot).filter(e=>e.tag==='input'&&e.type==='checkbox').length,1,'current and historical Next actions deduplicate');
-  const identityContents = {'Life/Moved.md':'- [x] Finished #me ^task-done ✅ 2026-09-22\n- [ ] Renamed title #me ^task-moved 📅 2026-09-23\n- [/] Claimed #me ^task-claim ⏳ agent\n- [ ] Restored #me ^task-restored\n'};
+  const identityContents = {'Atlas/Interface/Tasks.md':'- [x] Finished #me ^task-done ✅ 2026-09-22\n- [ ] Renamed title #me ^task-moved 📅 2026-09-23\n- [/] Claimed #me ^task-claim ⏳ agent\n- [ ] Restored #me ^task-restored\n'};
   const identity=setup(identityContents), identityScan=await identity.plugin.scanNotes(), identityTasks=await identity.plugin.collectTasks(identityScan);
   const iv=new context.View({},identity.plugin);
   iv.taskResolutions={resolutions:{'task-retired':{disposition:'retired',evidence_ref:'owner decision'},'task-restored':{disposition:'completed',evidence_ref:'older completion'}}};
@@ -477,7 +481,7 @@ async function tests() {
   assert(descendants(replacements).some(e=>e.text==='Restored'));
   const moved=identityTasks.find(t=>t.raw.includes('^task-moved'));
   await identity.plugin.toggleTask(moved);
-  assert(identityContents['Life/Moved.md'].includes('✅ 2026-09-08 ^task-moved'),'completion preserves ID at end after due metadata');
+  assert(identityContents['Atlas/Interface/Tasks.md'].includes('✅ 2026-09-08 ^task-moved'),'completion preserves ID at end after due metadata');
   console.log('PASS: merged Next actions, missing-index completion, metadata suffixes, moved sources, claims and reopened tasks');
   console.log('PASS: explicit occurrence confirmation, recurrence isolation, history, reserved controls, reopen, stale-write guard, contextual discussion, draft/error recovery and corrupt-state handling');
   console.log('PASS: task/question parsing, drafts/errors, mobile activation, Today source completion, stable IDs, durable instructions/drafts, Seen persistence/failure recovery, hidden transitions and diagnostics');

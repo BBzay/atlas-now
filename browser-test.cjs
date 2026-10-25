@@ -29,12 +29,11 @@ const output = process.argv[2];
       await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'main.js'),'utf8')+'\nwindow.TestView=AtlasView;'});
       await page.evaluate(async()=>{
         window.contents={
-          'Home/Questions for Boss.md':'## Open\n- A fixture question? [priority:: high]\n',
-          'Home/Instructions from Boss.md':'# Instructions\n',
-          'Home/Tasks.md':'# Tasks\n- [ ] Keep this priority #me [priority:: high] ^task-priority\n',
-          'Life/Tasks.md':'- [ ] First fixture action #me ^task-first\n- [ ] Second fixture action #me ^task-second\n- [ ] Third fixture action #me ^task-third\n',
-          'Home/Agents/old/before/Tasks.md':'- [ ] First fixture action #me ^task-first\n',
-          'Home/Planning/today.json':JSON.stringify({schema_version:1,date:'2026-09-22',blocks:[],unscheduled_task_ids:['task-first','task-second','task-third'],session_update:{id:'fixture-notice',text:'Important facts appear here.',details:['Campus parking changes Friday and Saturday.','A confirmed deadline moved to next Tuesday.','<b>This remains plain text.</b>']}})
+          'Atlas/Interface/Questions.md':'## Open\n- A fixture question? [priority:: high]\n',
+          'Atlas/Interface/Tell Atlas.md':'# Tell Atlas\n',
+          'Atlas/Interface/Tasks.md':'# Tasks\n\n## Fixtures\n- [ ] Keep this priority #me [priority:: high] ^task-priority\n    - See [[Life/Notes]]\n- [ ] First fixture action #me ^task-first\n- [ ] Second fixture action #me ^task-second\n- [ ] Third fixture action #me ^task-third\n\n## Inbox\n',
+          'Atlas/State/old/Tasks.md':'- [ ] First fixture action #me ^task-first\n',
+          'Atlas/State/today.json':JSON.stringify({schema_version:1,date:'2026-09-22',blocks:[],unscheduled_task_ids:['task-first','task-second','task-third'],session_update:{id:'fixture-notice',text:'Important facts appear here.',details:['Campus parking changes Friday and Saturday.','A confirmed deadline moved to next Tuesday.','<b>This remains plain text.</b>']}})
         };
         const files=Object.keys(contents).map(p=>new TFile(p));
         window.plugin=new module.exports.default();plugin.settings={...plugin.settings};
@@ -62,7 +61,7 @@ const output = process.argv[2];
       const starRect = await priorityStar.boundingBox(); assert(starRect.width>=44 && starRect.height>=44);
       await priorityStar.click();
       await page.waitForFunction(()=>document.querySelector('.an-high-priority h2').textContent==='High priority (0)');
-      assert(await page.evaluate(()=>contents['Home/Tasks.md'].includes('- [ ] Keep this priority #me [priority:: normal]')));
+      assert(await page.evaluate(()=>contents['Atlas/Interface/Tasks.md'].includes('- [ ] Keep this priority #me [priority:: normal]')));
       await page.locator('.an-backlog summary').first().click();
       await page.getByRole('button',{name:'High priority: Keep this priority',exact:true}).click();
       await page.waitForFunction(()=>document.querySelector('.an-high-priority h2').textContent==='High priority (1)');
@@ -71,7 +70,7 @@ const output = process.argv[2];
       await page.locator('.an-quick-controls input').check();
       await quick.press('Enter');
       await page.waitForFunction(()=>document.querySelector('.an-high-priority h2').textContent==='High priority (2)');
-      assert(await page.evaluate(()=>contents['Home/Tasks.md'].includes('Directly captured task #me') && !contents['Home/Instructions from Boss.md'].includes('Directly captured task')));
+      assert(await page.evaluate(()=>contents['Atlas/Interface/Tasks.md'].includes('Directly captured task #me') && !contents['Atlas/Interface/Tell Atlas.md'].includes('Directly captured task')));
       await quick.fill('Keep failed capture');
       await page.evaluate(()=>{window.failWrite=true;});
       await quick.press('Enter');
@@ -82,7 +81,7 @@ const output = process.argv[2];
       await page.evaluate(()=>{window.initialInput=view.addInput;});
       await input.fill('Keep this draft and selection');
       await input.evaluate(e=>e.setSelectionRange(5,9));
-      await page.evaluate(async()=>{contents['Life/Tasks.md']+='\nA note changed';await view.refresh({background:true});});
+      await page.evaluate(async()=>{contents['Atlas/Interface/Tasks.md']+='\nA note changed';await view.refresh({background:true});});
       assert(await page.evaluate(()=>view.addInput===initialInput && document.activeElement===initialInput && initialInput.selectionStart===5),'Background refresh disrupted typing');
       await input.evaluate(e=>e.blur());
       await page.evaluate(()=>view.refresh());
@@ -96,12 +95,12 @@ const output = process.argv[2];
       await page.evaluate(()=>{plugin.scanNotes=()=>new Promise(r=>window.releaseScan=r);window.pending=view.refresh({background:true});window.held=document.querySelector('.an-untimed input');});
       const cbRect=await first.boundingBox();
       await page.mouse.move(cbRect.x+cbRect.width/2,cbRect.y+cbRect.height/2); await page.mouse.down();
-      await page.evaluate(async()=>{releaseScan(await scan());await pending;plugin.scanNotes=scan;contents['Life/Tasks.md']=contents['Life/Tasks.md'].replace('^task-first','^task-first 📅 2026-09-23');});
+      await page.evaluate(async()=>{releaseScan(await scan());await pending;plugin.scanNotes=scan;contents['Atlas/Interface/Tasks.md']=contents['Atlas/Interface/Tasks.md'].replace('^task-first','^task-first 📅 2026-09-23');});
       assert(await page.evaluate(()=>held.isConnected),'Held pointer target detached');
       await page.mouse.up();
-      await page.waitForFunction(()=>contents['Life/Tasks.md'].includes('[x] First fixture action'));
+      await page.waitForFunction(()=>contents['Atlas/Interface/Tasks.md'].includes('[x] First fixture action'));
       await page.waitForFunction(()=>!document.querySelector('.an-untimed')?.textContent.includes('First fixture action'));
-      assert(await page.evaluate(()=>contents['Life/Tasks.md'].includes('📅 2026-09-23')));
+      assert(await page.evaluate(()=>contents['Atlas/Interface/Tasks.md'].includes('📅 2026-09-23')));
       assert(await page.evaluate(()=>document.querySelector('main').contains(document.activeElement)),'Completion lost keyboard focus');
       // A failed save remains unchecked and retryable, with a visible reason.
       await page.evaluate(()=>{failWrite=true;});
@@ -112,10 +111,10 @@ const output = process.argv[2];
       await page.evaluate(()=>{failWrite=false;});
       const secondTarget=page.locator('.an-untimed .an-task-check').first();
       if(width<800) await secondTarget.tap({position:{x:3,y:3}}); else await secondTarget.click({position:{x:3,y:3}});
-      await page.waitForFunction(()=>contents['Life/Tasks.md'].includes('[x] Second fixture action'));
+      await page.waitForFunction(()=>contents['Atlas/Interface/Tasks.md'].includes('[x] Second fixture action'));
       await page.waitForFunction(()=>document.querySelectorAll('.an-untimed input').length===1);
       await page.locator('.an-untimed input').focus(); await page.keyboard.press('Space');
-      await page.waitForFunction(()=>contents['Life/Tasks.md'].includes('[x] Third fixture action'));
+      await page.waitForFunction(()=>contents['Atlas/Interface/Tasks.md'].includes('[x] Third fixture action'));
       await page.waitForFunction(()=>!view.pendingTaskWrites && !view.refreshRunning);
       assert.equal(await input.inputValue(),'Keep this draft and selection');
       for(const dark of [false,true]) {

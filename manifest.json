@@ -1,9 +1,9 @@
 {
   "id": "atlas-now",
   "name": "Atlas Now",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "minAppVersion": "1.4.0",
-  "description": "Persistent high-priority tasks, direct task entry, a day timeline, important updates and questions.",
+  "description": "Atlas daily brief, priorities, one task list, timeline, questions and Tell Atlas.",
   "author": "Isaiah Horsager",
   "isDesktopOnly": false
 }

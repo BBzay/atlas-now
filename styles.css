@@ -243,3 +243,9 @@
 .an-quick-controls label{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}
 .an-quick-controls input{margin:0}
 .atlas-now .an-quick-controls .an-btn{min-height:44px;color:var(--text-normal);background:var(--background-secondary);border:1px solid var(--background-modifier-border)}
+
+.an-task-notes{order:99;flex:1 0 100%;width:100%;margin:0 0 0 54px;font-size:12px;line-height:1.45;color:var(--text-muted);min-width:0;overflow-wrap:anywhere}
+.an-task-note p{margin:0}
+.an-update-details li p{margin:0}
+.an-high-priority .an-task>.an-task-notes{grid-column:2 / -1;margin:0;width:auto}
+.atlas-now .an-text-button.an-task-text{text-align:left;justify-content:flex-start}

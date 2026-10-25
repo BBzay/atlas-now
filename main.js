@@ -26,19 +26,21 @@ module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
 var VIEW_TYPE = "atlas-now-view";
 var DEFAULTS = {
-  tasksFile: "Home/Tasks.md",
-  questionsFile: "Home/Questions for Boss.md",
-  planFile: "Home/Planning/today.json",
-  taskIndexFile: "Home/Planning/tasks.json",
-  feedbackFile: "Home/Planning/feedback.md",
-  instructionsFile: "Home/Instructions from Boss.md",
-  viewStateFile: "Home/Planning/view-state.json",
-  activityStateFile: "Home/Planning/activity-confirmations.json",
-  taskResolutionsFile: "Home/Planning/task-resolutions.json",
-  outboxFolder: "Home/Outbox",
+  tasksFile: "Atlas/Interface/Tasks.md",
+  questionsFile: "Atlas/Interface/Questions.md",
+  planFile: "Atlas/State/today.json",
+  taskIndexFile: "Atlas/State/tasks.json",
+  feedbackFile: "Atlas/State/feedback.md",
+  instructionsFile: "Atlas/Interface/Tell Atlas.md",
+  viewStateFile: "Atlas/State/view-state.json",
+  activityStateFile: "Atlas/State/activity-confirmations.json",
+  taskResolutionsFile: "Atlas/State/task-resolutions.json",
+  outboxFolder: "",
+  // Files whose checkboxes are tracked tasks. Empty = the tasks file plus Tell Atlas; "*" = every note.
+  taskSources: "",
   journalFolder: "Journal",
-  dailyTemplate: "Home/Templates/Daily note.md",
-  ignoreFolders: "Reference/, Private/, Home/Now.md",
+  dailyTemplate: "Atlas/Templates/Daily note.md",
+  ignoreFolders: "Reference/, Private/",
   workoutData: ".obsidian/plugins/workout-ledger/data.json"
 };
 function updateDetails(update) {
@@ -242,7 +244,7 @@ var AtlasNow = class extends import_obsidian.Plugin {
     const normalized = path.replace(/\\/g, "/");
     // Evidence, backups and source packages are not live task queues. Never let
     // a copied checkbox disable or resurrect its canonical source task.
-    if (/^(?:Home\/(?:Agents|Automation)\/|Home\/Records\/Atlas review evidence\/)/i.test(normalized)) return true;
+    if (/^Atlas\/(?:State|Log|Skills|Knowledge|Tools|Templates)\//i.test(normalized)) return true;
     if (normalized.split("/").some(p => p.startsWith(".") || /^(?:Private|Reference|node_modules|__pycache__|dist|build|atlas-now-plugin)$/i.test(p))) return true;
     return this.settings.ignoreFolders.split(",").map((s) => s.trim().replace(/\\/g, "/")).filter(Boolean).some((p) => normalized.startsWith(p));
   }
@@ -250,7 +252,18 @@ var AtlasNow = class extends import_obsidian.Plugin {
     if (/\.md$/i.test(path)) return !this.ignored(path);
     return [this.settings.planFile, this.settings.taskIndexFile, this.settings.viewStateFile,
       this.settings.activityStateFile, this.settings.taskResolutionsFile].includes(path) ||
-      /^Home\/Planning\/history\/.*\.json$/i.test(path);
+      (path.startsWith(this.historyDir()) && /\.json$/i.test(path));
+  }
+  // Plan history lives beside the plan file (e.g. Atlas/State/history/).
+  historyDir() {
+    const plan = (0, import_obsidian.normalizePath)(this.settings.planFile || DEFAULTS.planFile);
+    return plan.replace(/[^/]*$/, "") + "history/";
+  }
+  taskSourcePaths() {
+    const raw = String(this.settings.taskSources || "").trim();
+    if (raw === "*") return null;
+    const list = raw ? raw.split(",") : [this.settings.tasksFile, this.settings.instructionsFile];
+    return new Set(list.map(s => (0, import_obsidian.normalizePath)(String(s).trim())).filter(Boolean));
   }
   // ---------- data
   async readJson(path) {
@@ -283,7 +296,8 @@ var AtlasNow = class extends import_obsidian.Plugin {
       references.set(plan.date, refs);
     };
     const files = this.app.vault.getFiles?.() || [];
-    for (const file of files.filter(f => /^Home\/Planning\/history\/\d{4}-\d{2}-\d{2}-r\d+\.json$/.test(f.path))) {
+    const historyDir = this.historyDir();
+    for (const file of files.filter(f => f.path.startsWith(historyDir) && /\/\d{4}-\d{2}-\d{2}-r\d+\.json$/.test(f.path))) {
       const plan = JSON.parse(await this.app.vault.cachedRead(file));
       if (!Array.isArray(plan.blocks) || !/^\d{4}-\d{2}-\d{2}$/.test(plan.date)) throw new Error("Invalid activity history");
       remember(plan);
@@ -364,15 +378,30 @@ var AtlasNow = class extends import_obsidian.Plugin {
   async collectTasks(scan = null) {
     const { notes } = scan || await this.scanNotes();
     const out = [];
+    const sources = this.taskSourcePaths();
+    const tasksFile = (0, import_obsidian.normalizePath)(this.settings.tasksFile || DEFAULTS.tasksFile);
+    const instructionsFile = (0, import_obsidian.normalizePath)(this.settings.instructionsFile || DEFAULTS.instructionsFile);
     for (const { file, lines, body } of notes) {
-      const project = file.path.startsWith("Projects/") ? file.path.split("/")[1] : file.parent?.name || "";
+      if (sources && !sources.has(file.path)) continue;
+      // In the task list, the nearest "## " heading is the project.
+      let project = file.path === instructionsFile ? "Tell Atlas" : file.path.startsWith("Projects/") ? file.path.split("/")[1] : file.parent?.name || "";
       for (let ln = 0; ln < body.length; ln++) {
+        const heading = file.path === tasksFile && body[ln].match(/^##\s+(.+?)\s*$/);
+        if (heading) { project = heading[1]; continue; }
         const raw = lines[ln];
         const m = body[ln].match(/^\s*(?:[-*+]|\d+[.)])\s+\[([ /])\]\s+(.*)$/);
         if (!m) continue;
         const owner = ownerOf(m[2]);
         const due = m[2].match(/📅\s*(\d{4}-\d{2}-\d{2})/)?.[1];
-        out.push({ file, line: ln, raw, text: stripTags(m[2]), owner, done: false, claimed: m[1] === "/", due, project, highPriority: /\[priority::\s*high\s*\]/i.test(m[2]) });
+        // Indented plain lines under a task are its context (links, what is ready, what remains).
+        const indent = body[ln].match(/^\s*/)[0].length;
+        const notes = [];
+        for (let k = ln + 1; k < body.length; k++) {
+          const next = body[k];
+          if (!next.trim() || next.match(/^\s*/)[0].length <= indent || /^\s*(?:[-*+]|\d+[.)])\s+\[[ xX/]\]/.test(next)) break;
+          notes.push(next.trim().replace(/^[-*+]\s+/, ""));
+        }
+        out.push({ file, line: ln, raw, text: stripTags(m[2]), owner, done: false, claimed: m[1] === "/", due, project, notes, highPriority: /\[priority::\s*high\s*\]/i.test(m[2]) });
       }
     }
     out.sort((a, b) => {
@@ -418,7 +447,7 @@ var AtlasNow = class extends import_obsidian.Plugin {
     for (const q of out) {
       const field = name => q.text.match(new RegExp("\\[" + name + "::\\s*([^\\]]+)\\]", "i"))?.[1]?.trim();
       const target = q.text.match(/\[\[([^\]|#]+)/)?.[1] || "";
-      q.project = field("project") || (target.startsWith("Projects/") ? target.split("/")[1] : target.startsWith("Business/BizCollab/") ? "TELI" : target.startsWith("Life/") ? target.split("/")[1] : "General");
+      q.project = field("project") || (target.startsWith("Projects/") ? target.split("/")[1] : target.startsWith("Life/") ? target.split("/")[1] : "General");
       const priority = (field("priority") || "").toLowerCase();
       // Explicit priorities win over incidental wording. Tell Atlas and current
       // planning markers retain their standing high-priority promotion.
@@ -430,7 +459,8 @@ var AtlasNow = class extends import_obsidian.Plugin {
     return out.sort((a, b) => a.priority - b.priority || a.project.localeCompare(b.project) || a.line - b.line);
   }
   collectOutbox() {
-    const folder = (0, import_obsidian.normalizePath)(this.settings.outboxFolder.trim() || DEFAULTS.outboxFolder).replace(/\/$/, "");
+    if (!String(this.settings.outboxFolder || "").trim()) return [];
+    const folder = (0, import_obsidian.normalizePath)(this.settings.outboxFolder.trim()).replace(/\/$/, "");
     const prefix = folder + "/";
     return this.app.vault.getMarkdownFiles().filter((file) => {
       if (!file.path.startsWith(prefix)) return false;
@@ -510,7 +540,7 @@ var AtlasNow = class extends import_obsidian.Plugin {
     if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error("Invalid due date.");
     const path = (0, import_obsidian.normalizePath)(this.settings.tasksFile);
     let f = this.app.vault.getAbstractFileByPath(path);
-    if (!(f instanceof import_obsidian.TFile)) f = await this.app.vault.create(path, "# Tasks\n\nQuick-added tasks. Move them to the project or note they belong to when it is obvious; otherwise they live here. Owner tags: #me \xB7 #ai \xB7 #together.\n\n");
+    if (!(f instanceof import_obsidian.TFile)) f = await this.app.vault.create(path, "# Tasks\n\nEvery tracked task lives here, under its project. Owner tags: #me \xB7 #ai \xB7 #together.\n\n## Inbox\n");
     const id = `task-quick-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     const line = `- [ ] ${title.replace(/(?:^|\s)\^task-[\w-]+(?=\s|$)/g, "").replace(/\s*\[priority::[^\]]*\]/gi, "")}${owner !== "none" ? " #" + owner : ""}${due ? " \u{1F4C5} " + due : ""} \u2795 ${(0, import_obsidian.moment)().format("YYYY-MM-DD")}${highPriority ? " [priority:: high]" : ""} ^${id}`;
     await this.app.vault.process(f, data => data + (data.endsWith("\n") ? "" : "\n") + line + "\n");
@@ -694,10 +724,30 @@ var AtlasView = class extends import_obsidian.ItemView {
       const label = row.createEl(current ? "button" : "span", { cls: "an-task-text an-text-button", text: title, ...(current ? { attr: { type: "button", "aria-label": `Open task: ${title}` } } : {}) });
       if (current) label.onclick = () => this.plugin.openAt(current.file, current.line);
       else row.createSpan({ cls: "an-source-note", text: "Source needs review" });
+      if (current?.notes?.length) this.renderTaskNotes(row, current);
       if (current?.claimed) row.createSpan({ cls: "an-source-note", text: "In progress" });
       if (current) this.renderPriorityButton(row, current);
       cb.onchange = () => this.completeTask(current, cb);
     }
+  }
+  // Render markdown (links clickable) with a plain-text fallback.
+  renderMarkdownInto(el, markdown, sourcePath) {
+    const R = import_obsidian.MarkdownRenderer;
+    try {
+      if (R?.render) R.render(this.app, markdown, el, sourcePath, this);
+      else if (R?.renderMarkdown) R.renderMarkdown(markdown, el, sourcePath, this);
+      else { setPlainText(el, markdown); return; }
+      el.addEventListener?.("click", ev => {
+        const a = ev.target?.closest?.("a.internal-link");
+        if (!a) return;
+        ev.preventDefault();
+        this.app.workspace.openLinkText(a.getAttribute("data-href") || a.getAttribute("href"), sourcePath, ev.ctrlKey || ev.metaKey);
+      });
+    } catch (_) { setPlainText(el, markdown); }
+  }
+  renderTaskNotes(row, task) {
+    const box = row.createDiv({ cls: "an-task-notes" });
+    for (const note of task.notes) this.renderMarkdownInto(box.createDiv({ cls: "an-task-note" }), note, task.file.path);
   }
   renderPriorityButton(row, task) {
     const button = row.createEl("button", { cls: "an-btn an-priority-toggle", text: task.highPriority ? "★" : "☆", attr: {
@@ -729,6 +779,7 @@ var AtlasView = class extends import_obsidian.ItemView {
       title.onclick = () => this.plugin.openAt(task.file, task.line);
       this.renderPriorityButton(row, task);
       if (task.claimed) row.createSpan({ cls: "an-source-note", text: "In progress" });
+      if (task.notes?.length) this.renderTaskNotes(row, task);
     }
   }
   renderQuickAdd(parent) {
@@ -1157,7 +1208,7 @@ var AtlasView = class extends import_obsidian.ItemView {
           const details = content.createEl("details", { cls: "an-update-details" });
           details.createEl("summary", { text: `More to know (${items.length})` });
           const list = details.createEl("ul");
-          for (const item of items) list.createEl("li", { text: item });
+          for (const item of items) this.renderMarkdownInto(list.createEl("li"), item, this.plugin.settings.planFile);
         }
       const label = notice.createEl("label", { cls: "an-seen" });
       const seen = label.createEl("input", { attr: { type: "checkbox", "aria-label": "Mark session update as seen" } });
@@ -1172,8 +1223,8 @@ var AtlasView = class extends import_obsidian.ItemView {
       };
     }
     const openQ = questions.filter((q) => !q.answered);
-    const qs = section(root, "Questions for Boss", openQ.length, "", !openQ.length && !questionError && !this.plugin.questionsStatus?.missing);
-    if (questionError) qs.createDiv({ cls: "an-empty", text: "Could not read questions. Wait for sync, check the Questions for Boss file setting, then Refresh." });
+    const qs = section(root, "Questions", openQ.length, "", !openQ.length && !questionError && !this.plugin.questionsStatus?.missing);
+    if (questionError) qs.createDiv({ cls: "an-empty", text: "Could not read questions. Wait for sync, check the Questions file setting, then Refresh." });
     else if (this.plugin.questionsStatus?.missing) qs.createDiv({ cls: "an-empty", text: `File not found: ${this.plugin.questionsStatus.path}. Sync this file or correct its path in Atlas Now settings.` });
     else if (!openQ.length) qs.createDiv({ cls: "an-empty", text: "No questions right now." });
     if (openQ.length) this.renderQuestions(qs.createDiv({ cls: "an-questions-body" }), questions, null, restoreFocus);
@@ -1268,8 +1319,8 @@ var AtlasView = class extends import_obsidian.ItemView {
     if (viewStateError) system.createDiv({ cls: "an-warning", text: "Seen state could not be read; updates remain visible." });
     system.createDiv({ cls: "an-source-note", text: `${this.plugin.app.vault.getName()} · ${scan.notes.length} notes · ${tasks.length} tasks · ${unfinished.length} unfinished` });
     if (scan.errors.length) system.createDiv({ cls: "an-source-note", text: `${scan.errors.length} notes could not be read.` });
-    system.createDiv({ cls: "an-source-note", text: "Instructions save to the vault. Automatic agent wakeup is not connected." });
-    const os = section(system, "Outbox", outbox.length, "", !outbox.length);
+    system.createDiv({ cls: "an-source-note", text: "Tell Atlas messages and answers are handled at the next Atlas pass." });
+    const os = outbox.length ? section(system, "Outbox", outbox.length, "", false) : null;
     outbox.forEach((prompt) => {
       const row = os.createDiv({ cls: "an-outbox" });
       const open = row.createEl("button", { cls: "an-prompt-title", text: prompt.file.basename });
@@ -1290,6 +1341,10 @@ var AtlasView = class extends import_obsidian.ItemView {
     this.renderSignature = signature;
   }
 };
+function setPlainText(el, text) {
+  el.text = text;
+  if ("textContent" in el) el.textContent = text;
+}
 function section(root, title, n, note = "", compact = false) {
   const s = root.createDiv({ cls: "an-section" + (compact ? " an-compact" : "") });
   const h = s.createDiv({ cls: "an-h" });
@@ -1308,18 +1363,13 @@ var AtlasSettingTab = class extends import_obsidian.PluginSettingTab {
     containerEl.empty();
     const s = this.plugin.settings;
     const save = () => this.plugin.saveSettings();
-    new import_obsidian.Setting(containerEl).setName("Agent tasks file").addText((t) => t.setValue(s.tasksFile).onChange((v) => {
+    new import_obsidian.Setting(containerEl).setName("Tasks file").addText((t) => t.setValue(s.tasksFile).onChange((v) => {
       s.tasksFile = v;
       save();
     }));
-    new import_obsidian.Setting(containerEl).setName("Questions for Boss file").addText((t) => t.setValue(s.questionsFile).onChange((v) => {
+    new import_obsidian.Setting(containerEl).setName("Questions file").addText((t) => t.setValue(s.questionsFile).onChange((v) => {
       s.questionsFile = v;
       save();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Outbox folder").addText((t) => t.setValue(s.outboxFolder).onChange((v) => {
-      s.outboxFolder = v;
-      save();
-      this.plugin.scheduleRefresh();
     }));
     new import_obsidian.Setting(containerEl).setName("Journal folder").addText((t) => t.setValue(s.journalFolder).onChange((v) => {
       s.journalFolder = v;

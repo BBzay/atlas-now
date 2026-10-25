@@ -2,13 +2,21 @@
 
 An Obsidian panel for a proportional day timeline, next actions, important updates, questions and instructions.
 
+
+## 0.9.0 — Atlas folder layout and one task list
+
+- Reads the Atlas system files: tasks in `Atlas/Interface/Tasks.md`, questions in `Atlas/Interface/Questions.md`, Tell Atlas in `Atlas/Interface/Tell Atlas.md`, plan and index in `Atlas/State/`, daily template in `Atlas/Templates/`.
+- Only the task list (and Tell Atlas) holds tracked tasks; checkboxes elsewhere in the vault are notes. Set "taskSources" to `*` in data.json to scan every note.
+- Each `## ` heading in the task list is the task's project.
+- Indented lines under a task show beneath it, with clickable links; More to know items render links too.
+- Plan history is read from the `history/` folder beside the plan file. The Outbox section was removed.
 ## Install and update
 
 1. Enable BRAT on the device: obsidian://show-plugin?id=obsidian42-brat
 2. In BRAT's Add beta plugin dialog enter https://github.com/BBzay/atlas-now
 3. Enable Atlas Now under Community plugins, then run Atlas Now: Open Atlas Now.
 
-Already installed? In BRAT settings check for updates, then reload the plugin or restart Obsidian. Version 0.8.0 is the current release. No GitHub token is required. BRAT installs the plugin; existing sync carries notes and planning files. Installing plugin files on a computer does not update a phone using BRAT until a GitHub release is published.
+Already installed? In BRAT settings check for updates, then reload the plugin or restart Obsidian. Version 0.9.0 is the current release. No GitHub token is required. BRAT installs the plugin; existing sync carries notes and planning files. Installing plugin files on a computer does not update a phone using BRAT until a GitHub release is published.
 
 ## Version 0.8.0
 
